@@ -18,12 +18,17 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => MyAppState(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<ProviderMainState>(create: (_) => ProviderMainState()),
+        ChangeNotifierProvider<ProviderWaveState>(create: (_) => ProviderWaveState()),
+
+        ChangeNotifierProvider<ProviderMiscState>(create: (_) => ProviderMiscState())
+      ],
       child: MaterialApp(
         title: 'ELM App',
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          colorScheme: ColorScheme.fromSeed(seedColor: Color.fromARGB(255, 58, 104, 183)),
           useMaterial3: true,
         ),
         home: const MyHomePage(title: 'ELM App Home Page'),
@@ -42,18 +47,21 @@ class MyHomePage extends StatefulWidget {
 }
 
 
-//Code from waves
-dynamic levelCodeWaves;
-
 //APPSTATE -------------------------------------------------
-class MyAppState extends ChangeNotifier {
+class ProviderMainState extends ChangeNotifier {
 
-  dynamic levelCode = {
+  static dynamic levelCode = {
     //Everything inside is JSON
     'objects': [],
     'levelModules': [],
     'waveModules': [],
   };
+  static dynamic waveCode = {'objects': [], 'levelModules': [], 'waveModules': []};
+  static dynamic initialCode = {'objects': [], 'levelModules': [], 'waveModules': []};
+  static dynamic settingCode = {'objects': [], 'levelModules': [], 'waveModules': []};
+  static dynamic customCode = {'objects': [], 'levelModules': [], 'waveModules': []};
+
+  List waveModuleArr = [];
 
   dynamic levelInfo = {
     //Store information such as number of waves, flag interval, etc... here
@@ -61,26 +69,40 @@ class MyAppState extends ChangeNotifier {
 
   void importLevelCode({importedCode=''}){
     print('Imported Level Code: $importedCode');
-    levelCode['objects'] = importedCode['objects'];
+    //levelCode['objects'] = importedCode['objects'];
+    levelCode = importedCode;
     //Need to extract levelmodules and wavemodules
     //And also just extract everything in general
     //waveModuleArr = [],
 
-    print(levelCode['objects']);
-    importWaveCode(waveCode: levelCode['objects']);
-
-    //notifyListeners();
-    updateLevelCode();
+    print('imported level code objects: ${levelCode['objects']}');
+    ProviderWaveState.importWaveCode(waveCodeToAdd: levelCode['objects']); //TO-DO CHANGE
+    notifyListeners();
+    print('did it go this far');
   }
 
+  /// 
+  /// Update level code.
+  /// Note: Level code is stored in main.dart parameters.
+  /// When the respective pages is changed, the main code is set to the page code.
+  /// 
   void updateLevelCode(){
-    dynamic levelCodeWaves = exportWaveCode();
-    levelCode = levelCodeWaves;
+
+    print(waveCode);
+    print(initialCode);
+    //Note: For future waves, *ADD* new elements of array on top of levelCode objs
+    levelCode = {
+      'objects': [...waveCode['objects'], ...initialCode['objects'], ...settingCode['objects'], ...customCode['objects']],
+      'levelModules': [...waveCode['levelModules'], ...initialCode['levelModules'], ...settingCode['levelModules'], ...customCode['levelModules']],
+      'waveModules': [...waveCode['objects'], ...initialCode['waveModules'], ...settingCode['waveModules'], ...customCode['waveModules']],
+    };
+
     print('Updating level: $levelCode');
+    ProviderMiscState().updateMiscState();
     notifyListeners();
   }
 
-  void update(){
+  void updateMainState(){
     notifyListeners();
   }
 }

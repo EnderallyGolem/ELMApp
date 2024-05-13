@@ -13,18 +13,30 @@ dynamic importedFile;
 String importedFileName = "egypt1";
 const JsonEncoder jsonEncoder = JsonEncoder.withIndent('    ');
 
+class ProviderMiscState extends ChangeNotifier {
+  static dynamic levelCode;
+  static String levelJson = '';
+
+  void updateMiscState(){
+    getCodeShown();                                       //Gets the displayed code from main.dart
+    notifyListeners();                                    //Updates the displayed misc UI state
+  }
+
+  static void getCodeShown(){
+    levelCode = ProviderMainState.levelCode;
+    levelJson = jsonEncoder.convert((levelCode['objects'])); //Obviously has to be changed in the future
+  }
+}
+
 class Page_Misc extends StatefulWidget {
   @override
   _Page_MiscState createState() => _Page_MiscState();
 }
 class _Page_MiscState extends State<Page_Misc> {
-  //String levelJson = 'hmm'; // Define levelJson as a state variable
-
   @override
   Widget build(BuildContext context) {
-    var appState = context.watch<MyAppState>();
-    dynamic levelCode = appState.levelCode;
-    String levelJson = jsonEncoder.convert((levelCode['objects'])); //Obviously has to be changed in the future
+    var appMainState = context.watch<ProviderMainState>();
+    var appMiscState = context.watch<ProviderMiscState>();
     return Scaffold(
       appBar: AppBar(
         title: Text('Misc'),
@@ -39,33 +51,34 @@ class _Page_MiscState extends State<Page_Misc> {
               ElevatedButton(
                 onPressed: () async {
                   requestAndriodPermissions();
-                  _importFile(context: context, appState: appState);
+                  _importFile(context: context, appMainState: appMainState, appMiscState: appMiscState);
+                  appMiscState.updateMiscState();
                 },
                 child: Text('Import Level'),
               ),
               ElevatedButton(
                 onPressed: () {
-                  addLevelCodeToClipboard(context, levelJson);
+                  addLevelCodeToClipboard(context, ProviderMiscState.levelJson);
                 },
                 child: Icon(Icons.copy),
               ),
               ElevatedButton(
                 onPressed: () {
                   requestAndriodPermissions();
-                  _exportFile(context, levelJson);
+                  _exportFile(context, ProviderMiscState.levelJson);
                 },
                 child: Text('Export Level'),
               ),
             ]
           ),
-          Text(levelJson),
+          Text(ProviderMiscState.levelJson),
         ]
       )
     );
   }
 }
 
-void _importFile({dynamic context, dynamic appState}) async {
+void _importFile({required dynamic context, required ProviderMainState appMainState, required ProviderMiscState appMiscState}) async {
   FilePickerResult? result = await FilePicker.platform.pickFiles(
     type: FileType.custom,
     allowedExtensions: ['json', 'txt'],
@@ -84,7 +97,8 @@ void _importFile({dynamic context, dynamic appState}) async {
         print(importedFileName);
         print(importedFileDirectory);
         print(importedFile['objects'][0]['objdata']["ResourceGroupNames"]);
-        appState.importLevelCode(importedCode: importedFile);
+        appMainState.importLevelCode(importedCode: importedFile);
+        appMiscState.updateMiscState();
       } catch (e) {
         showAlertDialog(errorText: "Something went wrong! The file's json format might not be correct!", context: context, error: e);
     }
