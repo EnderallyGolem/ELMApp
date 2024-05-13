@@ -7,6 +7,7 @@ import '../main.dart';
 class ProviderWaveState extends ChangeNotifier {
 
   static List waveModuleArr = [];
+  static bool allowCallback = false;
 
   void updateWaveState(){
     notifyListeners();                                    //Updates the displayed wave UI state
@@ -32,14 +33,14 @@ class ProviderWaveState extends ChangeNotifier {
   }
 
   static void importWaveCode({dynamic waveCodeToAdd = ''}){
+    allowCallback = true;
     waveModuleArr = [];
     for(int waveIndex = 0; waveIndex < waveCodeToAdd.length; waveIndex++){
-      print('this run sright');
       waveModuleArr.insert(waveIndex, WaveModule(waveIndex: waveIndex, value: waveCodeToAdd[waveIndex].toString())); //TO-DO: Change value
+      print(animatedWaveListKey.currentState);
       print('loop for waveindex $waveIndex: ${waveModuleArr[waveIndex]}');
     }
   }
-
 }
 
 
@@ -63,12 +64,30 @@ class WaveModule extends StatefulWidget {
     print(display);
   }
 
-  static void deleteModule({int waveIndex = 0, required providerWaveState}) {
+  static Widget _buildAnimatedWaveModule(int waveIndex, Animation<double> animation) {
+    return FadeTransition(
+      opacity: animation,
+      child: SlideTransition(
+        position: waveAnimTween(animation: animation),
+        child: WaveModule(waveIndex: waveIndex),
+      ),
+    );
+  }
+  static void deleteModule({int waveIndex = 0, required providerWaveState, required context}) {
     ProviderWaveState.waveModuleArr.removeAt(waveIndex);
+    animatedWaveListKey.currentState!.removeItem(
+      waveIndex,
+      duration: Duration(milliseconds: 150),
+      (context, animation) => _buildAnimatedWaveModule(waveIndex, animation)
+    );
   }
 
   static void addModuleBelow({int waveIndex = -1, dynamic newValue = null, required providerWaveState}) {
     ProviderWaveState.waveModuleArr.insert(waveIndex+1, WaveModule(waveIndex: waveIndex, value: newValue)); //newValue will be new module list
+    animatedWaveListKey.currentState!.insertItem(
+      waveIndex+1, 
+      duration: Duration(milliseconds: 150)
+    );
   }
 
   static void updateAllModuleName({int firstWaveIndex = 0, required appWaveState}) {
@@ -94,6 +113,14 @@ class _WaveModuleState extends State<WaveModule> {
   @override
   void initState() {
     super.initState();
+    if (ProviderWaveState.allowCallback) {
+      //allowCallback is set to true if level is imported. This recreates the list when loaded.
+      //This check is here to prevent callbacks constantly
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ProviderWaveState.allowCallback = false;
+      }
+    );
+}
     //_controllers = TextEditingController(text: widget.value);
   }
 
@@ -131,6 +158,7 @@ class _WaveModuleState extends State<WaveModule> {
                   WaveModule.deleteModule(
                     waveIndex: widget.waveIndex,
                     providerWaveState: appWaveState,
+                    context: context
                   );
                   WaveModule.updateAllModuleName(
                     firstWaveIndex: widget.waveIndex,
@@ -168,8 +196,10 @@ class Page_Wave extends StatefulWidget {
   _Page_WaveState createState() => _Page_WaveState();
 }
 
+GlobalKey<AnimatedListState> animatedWaveListKey = GlobalKey<AnimatedListState>();
 class _Page_WaveState extends State<Page_Wave> {
   //UI for all waves ------------------------------------------------------------------------------
+  
   @override
   Widget build(BuildContext context) {
     var appWaveState = context.watch<ProviderWaveState>();
@@ -190,16 +220,34 @@ class _Page_WaveState extends State<Page_Wave> {
           ),
         ],
       ),
-      body: ListView.builder(
-        itemCount: ProviderWaveState.waveModuleArr.length,
-        itemBuilder: (context, index) {
-          return WaveModule(
-            waveIndex: index,
-            value: ProviderWaveState.waveModuleArr[index].value,
-            controllers: ProviderWaveState.waveModuleArr[index].controllers,
+      body: AnimatedList(
+        key: animatedWaveListKey,
+        initialItemCount: ProviderWaveState.waveModuleArr.length,
+        itemBuilder: (context, index, animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: waveAnimTween(animation: animation),
+              child: WaveModule(
+                waveIndex: index,
+                value: ProviderWaveState.waveModuleArr[index].value,
+                controllers: ProviderWaveState.waveModuleArr[index].controllers,
+              ),
+            ),
           );
         },
       ),
     );
   }
+}
+dynamic waveAnimTween({required animation}) {
+  return Tween<Offset>(
+    begin: Offset(0.2, 0.0), // Start position (off-screen to the right)
+    end: Offset(0.0, 0.0),   // End position (on-screen)
+  ).animate(
+    CurvedAnimation(
+      parent: animation, // Use the provided animation
+      curve: Curves.easeOut, // Apply an ease-out curve
+    ),
+  );
 }
