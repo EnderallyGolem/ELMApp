@@ -8,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../main.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/scheduler.dart';
 
 dynamic importedFile;
 String importedFileName = "egypt1";
@@ -16,6 +17,7 @@ const JsonEncoder jsonEncoder = JsonEncoder.withIndent('    ');
 class ProviderMiscState extends ChangeNotifier {
   static dynamic levelCode;
   static String levelJson = '';
+  static bool updateCode = true;
 
   void updateMiscState(){
     getCodeShown();                                       //Gets the displayed code from main.dart
@@ -33,10 +35,24 @@ class Page_Misc extends StatefulWidget {
   _Page_MiscState createState() => _Page_MiscState();
 }
 class _Page_MiscState extends State<Page_Misc> {
+
+  @override
+  void initState() {
+    ProviderMiscState.updateCode = true;
+  }
+
   @override
   Widget build(BuildContext context) {
     var appMainState = context.watch<ProviderMainState>();
     var appMiscState = context.watch<ProviderMiscState>();
+
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if(ProviderMiscState.updateCode){
+        appMiscState.updateMiscState(); //Update state the first time it is loaded. Such a dumb workaround...
+        ProviderMiscState.updateCode = false;
+      }
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Misc'),
@@ -97,11 +113,12 @@ void _importFile({required dynamic context, required ProviderMainState appMainSt
         // print('Imported File name: $importedFileName');
         // print('Imported Directory: $importedFileDirectory');
         // print('importedFile["objects"][0]["objdata"]["ResourceGroupNames"] = ${importedFile["objects"][0]["objdata"]["ResourceGroupNames"]}');
-        appMainState.importLevelCode(importedCode: importedFile);
+        ProviderMainState.importLevelCode(importedCode: importedFile);
         appMiscState.updateMiscState();
       } catch (e) {
         showAlertDialog(errorText: "Something went wrong! The file's json format might not be correct!", context: context, error: e);
-        ProviderMainState().resetLevelCode; //Reset level code to prevent errors
+        ProviderMainState.resetLevelCode(); //Reset level code to prevent errors
+        appMiscState.updateMiscState();
     }
   }
 } 

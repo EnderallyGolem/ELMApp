@@ -17,7 +17,7 @@ class ProviderWaveState extends ChangeNotifier {
   void updateWaveState(){
     notifyListeners();                                    //Updates the displayed wave UI state
     updateWaveCodeInMain(waveModuleArr: waveModuleArr);   //Updates wave code in main.dart
-    ProviderMainState().updateLevelCode();                //Updates the full code in main.dart
+    ProviderMainState.updateLevelCode();                  //Updates the full code in main.dart
   }
 
   //Generate the updated waveCode, then updates the waveCode in main.dart with it
@@ -70,7 +70,7 @@ class WaveModule extends StatefulWidget {
 
   static void addModuleBelow({required int waveIndex, dynamic newValue = null, required appWaveState}) {
     ProviderWaveState.waveModuleArr.insert(waveIndex+1, WaveModule(waveIndex: waveIndex, value: newValue)); //newValue will be new module list
-    appWaveState.updateWaveState();
+    updateAllModuleName(appWaveState: appWaveState, firstWaveIndex: waveIndex);
   }
 
   static void updateAllModuleName({int firstWaveIndex = 0, required appWaveState}) {
@@ -160,10 +160,6 @@ class _WaveModuleState extends State<WaveModule> {
                   waveIndex: widget.waveIndex,
                   appWaveState: appWaveState,
                 );
-                WaveModule.updateAllModuleName(
-                  firstWaveIndex: widget.waveIndex,
-                  appWaveState: appWaveState,
-                );
               },
               child: Icon(
                 Icons.add,
@@ -199,7 +195,6 @@ class _Page_WaveState extends State<Page_Wave> {
           ElevatedButton(
             onPressed: () {
               WaveModule.addModuleBelow(waveIndex: -1, newValue: null, appWaveState: appWaveState);
-              WaveModule.updateAllModuleName(appWaveState: appWaveState);
             },
             child: Row(children: [Icon(Icons.add, color: ProviderWaveState.wavesColour,), Text('Add Wave', selectionColor: ProviderWaveState.wavesColour,)])
           ),
@@ -251,10 +246,6 @@ class _Page_WaveState extends State<Page_Wave> {
                         value: item.value,
                         controllers: item.controllers,
                       ),
-                      // The child of a Handle can initialize a drag/reorder.
-                      // This could for example be an Icon or the whole item itself. You can
-                      // use the delay parameter to specify the duration for how long a pointer
-                      // must press the child, until it can be dragged.
                       trailing: Handle(
                         delay: const Duration(milliseconds: 0),
                         child: Icon(

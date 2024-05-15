@@ -68,16 +68,12 @@ class ProviderMainState extends ChangeNotifier {
   };
 
   /// Resets level code to empty. Ran when failed to import to prevent errors. TO-DO: Run when clicked reset button
-  void resetLevelCode(){
+  static void resetLevelCode(){
     print('Resetting level code...');
-    waveCode = {'objects': [], 'levelModules': [], 'waveModules': []};
-    initialCode = {'objects': [], 'levelModules': [], 'waveModules': []};
-    settingCode = {'objects': [], 'levelModules': [], 'waveModules': []};
-    customCode = {'objects': [], 'levelModules': [], 'waveModules': []};
     updateLevelCode();
   }
 
-  void importLevelCode({importedCode=''}){
+  static void importLevelCode({importedCode=''}){
     print('Imported Level Code: $importedCode');
     //levelCode['objects'] = importedCode['objects'];
     levelCode = importedCode;
@@ -87,8 +83,6 @@ class ProviderMainState extends ChangeNotifier {
 
     print('imported level code objects: ${levelCode['objects']}');
     ProviderWaveState.importWaveCode(waveCodeToAdd: levelCode['objects']); //TO-DO CHANGE
-    notifyListeners();
-    print('did it go this far');
   }
 
   /// 
@@ -96,10 +90,8 @@ class ProviderMainState extends ChangeNotifier {
   /// Note: Level code is stored in main.dart parameters.
   /// When the respective pages is changed, the main code is set to the page code.
   /// 
-  void updateLevelCode(){
+  static void updateLevelCode(){
 
-    print(waveCode);
-    print(initialCode);
     //Note: For future waves, *ADD* new elements of array on top of levelCode objs
     levelCode = {
       'objects': [...waveCode['objects'], ...initialCode['objects'], ...settingCode['objects'], ...customCode['objects']],
@@ -108,8 +100,7 @@ class ProviderMainState extends ChangeNotifier {
     };
 
     print('Updating level: $levelCode');
-    ProviderMiscState().updateMiscState();
-    notifyListeners();
+    ProviderMiscState.getCodeShown;
   }
 
   void updateMainState(){
