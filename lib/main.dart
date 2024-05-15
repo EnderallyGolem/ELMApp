@@ -67,6 +67,16 @@ class ProviderMainState extends ChangeNotifier {
     //Store information such as number of waves, flag interval, etc... here
   };
 
+  /// Resets level code to empty. Ran when failed to import to prevent errors. TO-DO: Run when clicked reset button
+  void resetLevelCode(){
+    print('Resetting level code...');
+    waveCode = {'objects': [], 'levelModules': [], 'waveModules': []};
+    initialCode = {'objects': [], 'levelModules': [], 'waveModules': []};
+    settingCode = {'objects': [], 'levelModules': [], 'waveModules': []};
+    customCode = {'objects': [], 'levelModules': [], 'waveModules': []};
+    updateLevelCode();
+  }
+
   void importLevelCode({importedCode=''}){
     print('Imported Level Code: $importedCode');
     //levelCode['objects'] = importedCode['objects'];

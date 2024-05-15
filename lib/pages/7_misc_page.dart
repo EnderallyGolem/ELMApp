@@ -94,13 +94,14 @@ void _importFile({required dynamic context, required ProviderMainState appMainSt
         String importedFileDirectory = file.path!;
         dynamic importedFile = jsonDecode(fileContent);
         importedFileName = file.name;
-        print(importedFileName);
-        print(importedFileDirectory);
-        print(importedFile['objects'][0]['objdata']["ResourceGroupNames"]);
+        // print('Imported File name: $importedFileName');
+        // print('Imported Directory: $importedFileDirectory');
+        // print('importedFile["objects"][0]["objdata"]["ResourceGroupNames"] = ${importedFile["objects"][0]["objdata"]["ResourceGroupNames"]}');
         appMainState.importLevelCode(importedCode: importedFile);
         appMiscState.updateMiscState();
       } catch (e) {
         showAlertDialog(errorText: "Something went wrong! The file's json format might not be correct!", context: context, error: e);
+        ProviderMainState().resetLevelCode; //Reset level code to prevent errors
     }
   }
 } 
@@ -119,7 +120,6 @@ void _exportFile(BuildContext context, String levelJson) async {
     if (outputFilePath == null) {
       // User canceled the picker
     } else {
-      print('So i believe this is the output file path???:\n$outputFilePath');
       saveFileToCustomDirectory(directoryPath: outputFilePath, content: levelJson, context: context);
 
     }
@@ -153,15 +153,17 @@ void requestAndriodPermissions() async {
   ].request();
 }
 
-showAlertDialog({errorText = "An error occured!", required BuildContext context, error = ''}) {
+void addLevelCodeToClipboard(context, textToCopy){
+  Clipboard.setData(ClipboardData(text: textToCopy)).then((_) {
+    showSnackDialog(snackText: 'Copied level code to your clipboard!', context: context);
+  });
+}
 
-  // set up the button
+showAlertDialog({String errorText = "An error occured!", required BuildContext context, error = '', String buttonText = 'Ok'}) {
   Widget okButton = TextButton(
-    child: Text("Ok"),
+    child: Text(buttonText),
     onPressed: () { Navigator.of(context).pop(); },
   );
-
-  // set up the AlertDialog
   AlertDialog alert = AlertDialog(
     title: Text("Error"),
     content: Text('$errorText\n\n($error)'),
@@ -169,8 +171,6 @@ showAlertDialog({errorText = "An error occured!", required BuildContext context,
       okButton,
     ],
   );
-
-  // show the dialog
   showDialog(
     context: context,
     builder: (BuildContext context) {
@@ -179,9 +179,8 @@ showAlertDialog({errorText = "An error occured!", required BuildContext context,
   );
 }
 
-void addLevelCodeToClipboard(context, textToCopy){
-  Clipboard.setData(ClipboardData(text: textToCopy)).then((_) {
+void showSnackDialog({required snackText, required BuildContext context}){
   ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Copied level code to your clipboard!')));
-});
+    SnackBar(content: Text(snackText))
+  );
 }
