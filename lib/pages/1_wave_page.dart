@@ -8,11 +8,15 @@ import 'package:animated_list_plus/transitions.dart';
 import '../main.dart';
 //import '/util_classes.dart';
 
+
+//TO-DO!!!!!!!!!!!!!! Swap out animatedlistplus for doing it manually because animatedlistplus dies with long lists :/
+
 class ProviderWaveState extends ChangeNotifier {
 
   static List<WaveModule> waveModuleArr = [];
   static bool allowCallback = false;
   static Color wavesColour = Color.fromARGB(255, 58, 104, 183);
+  static int nextId = 0;
 
   void updateWaveState(){
     notifyListeners();                                    //Updates the displayed wave UI state
@@ -55,17 +59,23 @@ class ProviderWaveState extends ChangeNotifier {
 
 class WaveModule extends StatefulWidget {
   final int waveIndex;
+  int? id;
   dynamic value;
   TextEditingController? controllers;
   String display = "";
 
-  WaveModule({required this.waveIndex, this.value = '', this.controllers = null}) {
+  WaveModule({required this.waveIndex, this.value = '', this.controllers = null, this.id = null}) {
     controllers ??= TextEditingController(text: value); //Sets a value if null
-    display = 'Wave ${waveIndex + 1}: $value';
+    display = 'Wave ${waveIndex + 1}: $value ID: ${id}';
+    if(id == null){
+      id = ProviderWaveState.nextId;
+      ProviderWaveState.nextId++;
+    }
   }
 
   static void deleteModule({required int waveIndex, required appWaveState, required context}) {
     ProviderWaveState.waveModuleArr.removeAt(waveIndex);
+    updateAllModuleName(appWaveState: appWaveState, firstWaveIndex: waveIndex);
   }
 
   static void addModuleBelow({required int waveIndex, dynamic newValue = null, required appWaveState}) {
@@ -75,21 +85,19 @@ class WaveModule extends StatefulWidget {
 
   static void updateAllModuleName({int firstWaveIndex = 0, required appWaveState}) {
     if (firstWaveIndex < 0){ firstWaveIndex=0; }
-    for (firstWaveIndex; firstWaveIndex < ProviderWaveState.waveModuleArr.length; firstWaveIndex++) {
-      ProviderWaveState.waveModuleArr[firstWaveIndex].display = 'Wave ${firstWaveIndex + 1}: ${ProviderWaveState.waveModuleArr[firstWaveIndex].value}';
-    }
+    // for (firstWaveIndex; firstWaveIndex < ProviderWaveState.waveModuleArr.length; firstWaveIndex++) {
+    //   ProviderWaveState.waveModuleArr[firstWaveIndex].display = 'Wave ${firstWaveIndex + 1}: ${ProviderWaveState.waveModuleArr[firstWaveIndex].value}';
+    // }
     appWaveState.updateWaveState();
   }
 
   static void updateModule({int waveIndex = 0, dynamic newValue, required appWaveState}) {
     ProviderWaveState.waveModuleArr[waveIndex].value = newValue;
-    ProviderWaveState.waveModuleArr[waveIndex].display = 'Wave ${waveIndex + 1}: ${newValue}';
     appWaveState.updateWaveState();
   }
 
   static void updateModuleNoReload({int waveIndex = 0, dynamic newValue, required appWaveState}) {
     ProviderWaveState.waveModuleArr[waveIndex].value = newValue;
-    ProviderWaveState.waveModuleArr[waveIndex].display = 'Wave ${waveIndex + 1}: ${newValue}';
   }
 
   @override
@@ -143,10 +151,6 @@ class _WaveModuleState extends State<WaveModule> {
                     waveIndex: widget.waveIndex,
                     appWaveState: appWaveState,
                     context: context
-                  );
-                  WaveModule.updateAllModuleName(
-                    firstWaveIndex: widget.waveIndex,
-                    appWaveState: appWaveState,
                   );
               },
               child: Icon(
@@ -210,7 +214,7 @@ class _Page_WaveState extends State<Page_Wave> {
         updateDuration: Duration(milliseconds: 150),
         key: animatedWaveListKey,
         items: ProviderWaveState.waveModuleArr,
-        areItemsTheSame: (a, b) => a == b,
+        areItemsTheSame: (a, b) => a.id == b.id,
         itemBuilder: (context, animation, item, index) {
           return Reorderable(
             // Each item must have an unique key.
@@ -243,6 +247,7 @@ class _Page_WaveState extends State<Page_Wave> {
                     child: ListTile(
                       title: WaveModule(
                         waveIndex: index,
+                        id: item.id,
                         value: item.value,
                         controllers: item.controllers,
                       ),
