@@ -1,12 +1,12 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'dart:ui';
 import 'package:provider/provider.dart';
-import 'package:animated_list_plus/animated_list_plus.dart';
-import 'package:animated_list_plus/transitions.dart';
 import '../main.dart';
-//import '/util_classes.dart';
+import '/util_classes.dart';
+import 'package:get/get.dart';
 
 
 //TO-DO!!!!!!!!!!!!!! Swap out animatedlistplus for doing it manually because animatedlistplus dies with long lists :/
@@ -16,7 +16,6 @@ class ProviderWaveState extends ChangeNotifier {
   static List<WaveModule> waveModuleArr = [];
   static bool allowCallback = false;
   static Color wavesColour = Color.fromARGB(255, 58, 104, 183);
-  static int nextId = 0;
 
   void updateWaveState(){
     notifyListeners();                                    //Updates the displayed wave UI state
@@ -41,6 +40,7 @@ class ProviderWaveState extends ChangeNotifier {
   }
 
   static void importWaveCode({dynamic waveCodeToAdd = ''}){
+    allowCallback = true;
     waveModuleArr = [];
     for(int waveIndex = 0; waveIndex < waveCodeToAdd.length; waveIndex++){
       waveModuleArr.insert(waveIndex, WaveModule(waveIndex: waveIndex, value: waveCodeToAdd[waveIndex].toString())); //TO-DO: Change value
@@ -59,44 +59,53 @@ class ProviderWaveState extends ChangeNotifier {
 
 class WaveModule extends StatefulWidget {
   final int waveIndex;
-  int? id;
   dynamic value;
   TextEditingController? controllers;
   String display = "";
 
-  WaveModule({required this.waveIndex, this.value = '', this.controllers = null, this.id = null}) {
+  WaveModule({required this.waveIndex, this.value = '', this.controllers = null}) {
     controllers ??= TextEditingController(text: value); //Sets a value if null
-    display = 'Wave ${waveIndex + 1}: $value ID: ${id}';
-    if(id == null){
-      id = ProviderWaveState.nextId;
-      ProviderWaveState.nextId++;
-    }
+    display = 'Wave ${waveIndex + 1}';
   }
 
+  static Widget _buildAnimatedWaveModule(int waveIndex, Animation<double> animation) {
+    return FadeTransition(
+      opacity: animation,
+      child: SizeTransition(
+        sizeFactor: waveSizeTween(animation: animation),
+        child: WaveModule(waveIndex: waveIndex),
+      ),
+    );
+  }
   static void deleteModule({required int waveIndex, required appWaveState, required context}) {
     ProviderWaveState.waveModuleArr.removeAt(waveIndex);
-    updateAllModuleName(appWaveState: appWaveState, firstWaveIndex: waveIndex);
+    animatedWaveListKey.currentState!.removeItem(
+      waveIndex,
+      duration: Duration(milliseconds: 150),
+      (context, animation) => _buildAnimatedWaveModule(waveIndex, animation)
+    );
   }
 
   static void addModuleBelow({required int waveIndex, dynamic newValue = null, required appWaveState}) {
+    waveIndex = waveIndex < -1 ? -1 : waveIndex;
+    waveIndex = waveIndex > ProviderWaveState.waveModuleArr.length - 1 ? ProviderWaveState.waveModuleArr.length - 2 : waveIndex;
     ProviderWaveState.waveModuleArr.insert(waveIndex+1, WaveModule(waveIndex: waveIndex, value: newValue)); //newValue will be new module list
-    updateAllModuleName(appWaveState: appWaveState, firstWaveIndex: waveIndex);
+    animatedWaveListKey.currentState!.insertItem(
+      waveIndex+1, 
+      duration: Duration(milliseconds: 150)
+    );
   }
 
-  static void updateAllModuleName({int firstWaveIndex = 0, required appWaveState}) {
-    if (firstWaveIndex < 0){ firstWaveIndex=0; }
-    // for (firstWaveIndex; firstWaveIndex < ProviderWaveState.waveModuleArr.length; firstWaveIndex++) {
-    //   ProviderWaveState.waveModuleArr[firstWaveIndex].display = 'Wave ${firstWaveIndex + 1}: ${ProviderWaveState.waveModuleArr[firstWaveIndex].value}';
-    // }
+  static void updateAllModule({int firstWaveIndex = 0, required appWaveState}) {
     appWaveState.updateWaveState();
   }
 
-  static void updateModule({int waveIndex = 0, dynamic newValue, required appWaveState}) {
+  static void updateModuleValue({int waveIndex = 0, dynamic newValue, required appWaveState}) {
     ProviderWaveState.waveModuleArr[waveIndex].value = newValue;
     appWaveState.updateWaveState();
   }
 
-  static void updateModuleNoReload({int waveIndex = 0, dynamic newValue, required appWaveState}) {
+  static void updateModuleValueNoReload({int waveIndex = 0, dynamic newValue, required appWaveState}) {
     ProviderWaveState.waveModuleArr[waveIndex].value = newValue;
   }
 
@@ -109,6 +118,13 @@ class _WaveModuleState extends State<WaveModule> {
   @override
   void initState() {
     super.initState();
+    if (ProviderWaveState.allowCallback) {
+      //allowCallback is set to true if level is imported. This recreates the list when loaded.
+      //This check is here to prevent callbacks constantly
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ProviderWaveState.allowCallback = false;
+      });
+    }
   }
 
   @override
@@ -120,9 +136,101 @@ class _WaveModuleState extends State<WaveModule> {
   Widget build(BuildContext context) {
     //UI for each wave ------------------------------------------------------------------------------
     var appWaveState = context.watch<ProviderWaveState>();
+
     return Column(
       key: ValueKey(widget.value),
       children: [
+        Row(
+          children: [
+            Expanded(child: Text(widget.display)),
+            //Shift Up
+            ElmIconButton(iconData: Icons.arrow_upward, iconColor: ProviderWaveState.wavesColour, buttonWidth: 45,
+              onPressFunctions: () {
+                WaveModule.addModuleBelow(
+                  waveIndex: widget.waveIndex - 2,
+                  appWaveState: appWaveState,
+                  newValue: widget.value,
+                );
+                WaveModule.deleteModule(
+                  waveIndex: widget.waveIndex + 1, 
+                  appWaveState: appWaveState, 
+                  context: context,
+                );
+                WaveModule.updateAllModule(
+                  firstWaveIndex: widget.waveIndex,
+                  appWaveState: appWaveState,
+                );
+              }
+            ),
+            //Shift Down
+            ElmIconButton(iconData: Icons.arrow_downward, iconColor: ProviderWaveState.wavesColour, buttonWidth: 45,
+              onPressFunctions: () {
+                WaveModule.addModuleBelow(
+                  waveIndex: widget.waveIndex + 1,
+                  appWaveState: appWaveState,
+                  newValue: widget.value,
+                );
+                WaveModule.deleteModule(
+                  waveIndex: widget.waveIndex, 
+                  appWaveState: appWaveState, 
+                  context: context,
+                );
+                WaveModule.updateAllModule(
+                  firstWaveIndex: widget.waveIndex,
+                  appWaveState: appWaveState,
+                );
+              }
+            ),
+            //Copy
+            ElmIconButton(iconData: Icons.copy, iconColor: ProviderWaveState.wavesColour,
+              onPressFunctions: () {
+                WaveModule.addModuleBelow(
+                  waveIndex: widget.waveIndex,
+                  appWaveState: appWaveState,
+                  newValue: widget.value,
+                );
+                WaveModule.updateAllModule(
+                  firstWaveIndex: widget.waveIndex,
+                  appWaveState: appWaveState,
+                );
+              }
+            ),
+            //Delete
+            ElmIconButton(iconData: Icons.delete, iconColor: ProviderWaveState.wavesColour, 
+            onPressFunctions: (){
+              //TO-DO: Option to disable warning
+              Get.defaultDialog(title: 'Delete Wave?', middleText: 'Are you sure you want to delete this wave?', textCancel: 'Cancel', textConfirm: 'Delete it!', onConfirm: (){
+                WaveModule.deleteModule(
+                  waveIndex: widget.waveIndex,
+                  appWaveState: appWaveState,
+                  context: context
+                );
+                WaveModule.updateAllModule(
+                  firstWaveIndex: widget.waveIndex,
+                  appWaveState: appWaveState,
+                );
+                Get.back();
+              });
+
+            }),
+            //Add
+            ElmIconButton(iconData: Icons.add, iconColor: ProviderWaveState.wavesColour, 
+              onPressFunctions:(){
+                WaveModule.addModuleBelow(
+                  waveIndex: widget.waveIndex,
+                  appWaveState: appWaveState,
+                  newValue: null,
+                );
+                WaveModule.updateAllModule(
+                  firstWaveIndex: widget.waveIndex,
+                  appWaveState: appWaveState,
+                );
+              }
+            ),
+          ],
+        ),
+        //SizedBox(height: 10),
+        //Level Modules
         Focus(
           onFocusChange: (isFocused) {
             appWaveState.updateWaveState();
@@ -131,46 +239,13 @@ class _WaveModuleState extends State<WaveModule> {
             controller: widget.controllers,
             onChanged: (value) {
               // Update the value directly through the provider
-              WaveModule.updateModuleNoReload(
+              WaveModule.updateModuleValueNoReload(
                 waveIndex: widget.waveIndex,
                 newValue: value,
                 appWaveState: appWaveState,
               );
             },
-            decoration: InputDecoration(
-              labelText: '${widget.display}',
-            ),
           ),
-        ),
-        SizedBox(height: 10),
-        Row(
-          children: [
-            ElevatedButton(
-              onPressed: () {
-                  WaveModule.deleteModule(
-                    waveIndex: widget.waveIndex,
-                    appWaveState: appWaveState,
-                    context: context
-                  );
-              },
-              child: Icon(
-                Icons.delete, 
-                color: ProviderWaveState.wavesColour,
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                WaveModule.addModuleBelow(
-                  waveIndex: widget.waveIndex,
-                  appWaveState: appWaveState,
-                );
-              },
-              child: Icon(
-                Icons.add,
-                color: ProviderWaveState.wavesColour,
-              ),
-            ),
-          ],
         ),
       ],
     );
@@ -186,7 +261,6 @@ class Page_Wave extends StatefulWidget {
 final GlobalKey<AnimatedListState> animatedWaveListKey = GlobalKey<AnimatedListState>();
 class _Page_WaveState extends State<Page_Wave> {
   //UI for all waves ------------------------------------------------------------------------------
-  
   @override
   Widget build(BuildContext context) {
     var appWaveState = context.watch<ProviderWaveState>();
@@ -204,68 +278,32 @@ class _Page_WaveState extends State<Page_Wave> {
           ),
         ],
       ),
-      body: ImplicitlyAnimatedReorderableList<WaveModule>(
-          onReorderFinished: (item, from, to, newItems) {
-            WaveModule.deleteModule(appWaveState: appWaveState, context: context, waveIndex: from);
-            WaveModule.addModuleBelow(appWaveState: appWaveState, newValue: item.value, waveIndex: to - 1);
-          },
-        insertDuration: Duration(milliseconds: 150),
-        removeDuration: Duration(milliseconds: 150),
-        updateDuration: Duration(milliseconds: 150),
+      body: AnimatedList(
         key: animatedWaveListKey,
-        items: ProviderWaveState.waveModuleArr,
-        areItemsTheSame: (a, b) => a.id == b.id,
-        itemBuilder: (context, animation, item, index) {
-          return Reorderable(
-            // Each item must have an unique key.
-            key: ValueKey(item),
-            // The animation of the Reorderable builder can be used to
-            // change to appearance of the item between dragged and normal
-            // state. For example to add elevation when the item is being dragged.
-            // This is not to be confused with the animation of the itemBuilder.
-            // Implicit animations (like AnimatedContainer) are sadly not yet supported.
-            builder: (context, dragAnimation, inDrag) {
-              final t = dragAnimation.value;
-              final elevation = lerpDouble(0, 8, t);
-              final color = Color.lerp(Colors.white, Colors.white.withOpacity(0.8), t);
-
-              return SizeFadeTransition(
-                sizeFraction: 0.7,
-                curve: Curves.easeInOut,
-                animation: animation,
-                // child: WaveModule(
-                //   waveIndex: index,
-                //   value: item.value,
-                //   controllers: item.controllers,
-                // ),
-                child: Material(
-                  color: color,
-                  elevation: elevation!,
-                  type: MaterialType.transparency,
-                  child: SizedBox(
-                    height: 150,
-                    child: ListTile(
-                      title: WaveModule(
-                        waveIndex: index,
-                        id: item.id,
-                        value: item.value,
-                        controllers: item.controllers,
-                      ),
-                      trailing: Handle(
-                        delay: const Duration(milliseconds: 0),
-                        child: Icon(
-                          Icons.list,
-                          color: ProviderWaveState.wavesColour,
-                        ),
-                      ),
-                    ),
-                  ),
-                )
-              );
-            }
+        initialItemCount: ProviderWaveState.waveModuleArr.length,
+        itemBuilder: (context, index, animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: SizeTransition(
+              sizeFactor: waveSizeTween(animation: animation),
+              axis: Axis.vertical,
+              axisAlignment: 0,
+              child: WaveModule(
+                waveIndex: index,
+                value: ProviderWaveState.waveModuleArr[index].value,
+                controllers: ProviderWaveState.waveModuleArr[index].controllers,
+              ),
+            ),
           );
-        }
-      )
+        },
+      ),
     );
   }
+}
+
+dynamic waveSizeTween({required animation}) {
+  return CurvedAnimation(
+    parent: animation, // Use the provided animation
+    curve: Curves.linear, // Apply an ease-out curve
+  );
 }

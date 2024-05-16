@@ -1,7 +1,50 @@
 import 'package:flutter/material.dart';
-//import 'package:provider/provider.dart';
-//import '../main.dart';
+import 'package:provider/provider.dart';
+import '../main.dart';
 
+
+/// A small button that only consists of an icon and runs some functions.
+/// 
+/// [iconData] is the icon type, eg: Icons.arrow_upward
+/// [iconColor] is the icon colour, eg: Color.fromARGB(255, 58, 104, 183)
+/// [onPressFunctions] are functions to be ran when button is clicked.
+/// Optional doubles [buttonWidth] and [buttonHeight] for width and height of buttons. Default 60, 35
+/// 
+class ElmIconButton extends StatelessWidget {
+  ElmIconButton({
+    super.key,
+    required this.iconData,
+    required this.iconColor,
+    required this.onPressFunctions,
+    this.buttonWidth = 60,
+    this.buttonHeight = 30,
+  });
+
+  final IconData iconData;
+  final Color iconColor;
+  final Function onPressFunctions;
+  double buttonWidth;
+  double buttonHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      //Copy Wave Button
+      style: ElevatedButton.styleFrom(
+        padding: EdgeInsets.fromLTRB(0, 0, 0, 0),
+        minimumSize: Size(buttonWidth, buttonHeight),
+        fixedSize: Size(buttonWidth, buttonHeight),
+      ),
+      onPressed: () {
+        onPressFunctions();
+      },
+      child: Icon(
+        iconData,
+        color: iconColor,
+      ),
+    );
+  }
+}
 
 ///
 /// Usage: 

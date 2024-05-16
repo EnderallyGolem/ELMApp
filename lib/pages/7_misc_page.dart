@@ -2,13 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../main.dart';
+import '/util_classes.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:get/get.dart';
 
 dynamic importedFile;
 String importedFileName = "egypt1";
@@ -87,6 +87,28 @@ class _Page_MiscState extends State<Page_Misc> {
               ),
             ]
           ),
+          Row(
+            children: [
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color.fromRGBO(255, 180, 180, 1),
+                ),
+                onPressed: () {
+                  Get.defaultDialog(title: 'Reset level?', middleText: 'This will clear all data in the level.\nAre you sure about this?', textCancel: 'Cancel', textConfirm: 'Reset level!', onConfirm: (){
+                    Get.back();
+                    Get.defaultDialog(title: 'Reset level?', middleText: "Are you absolutely sure?!\nThere's no undo button!", textCancel: 'Cancel', textConfirm: 'Reset it!!!!', 
+                    onConfirm: (){
+                      ProviderMainState.resetLevelCode();
+                      appMiscState.updateMiscState();
+                      Get.back();
+                    },
+                  );
+                  });
+                },
+                child: Text('Reset Level'),
+              ),
+            ],
+          ),
           Text(ProviderMiscState.levelJson),
         ]
       )
@@ -116,8 +138,8 @@ void _importFile({required dynamic context, required ProviderMainState appMainSt
         ProviderMainState.importLevelCode(importedCode: importedFile);
         appMiscState.updateMiscState();
       } catch (e) {
-        showAlertDialog(errorText: "Something went wrong! The file's json format might not be correct!", context: context, error: e);
-        ProviderMainState.resetLevelCode(); //Reset level code to prevent errors
+        Get.defaultDialog(title: "Error", middleText: "Something went wrong! The file's json format might not be correct!\n\n$e", textCancel: 'Ok');
+        ProviderMainState.resetLevelCode(); //Clear level code to prevent errors
         appMiscState.updateMiscState();
     }
   }
@@ -141,7 +163,7 @@ void _exportFile(BuildContext context, String levelJson) async {
 
     }
   } catch (e) {
-    showAlertDialog(errorText: "Something went wrong! Uh oh!", context: context, error: e);
+    Get.defaultDialog(title: "Error", middleText: "Something went wrong! Uh oh!\n\n$e", textCancel: 'Ok');
   }
 }
 
@@ -156,7 +178,7 @@ void saveFileToCustomDirectory({required String directoryPath, required String c
     print('File saved successfully at: ${file.path}');
   } catch (e) {
     print('Unable to create file: $e');
-    showAlertDialog(errorText: "Unable to create file.", context: context, error: e);
+    Get.defaultDialog(title: "Error", middleText: "Unable to create file.\n\n$e", textCancel: 'Ok');
   }
 }
 
@@ -172,32 +194,6 @@ void requestAndriodPermissions() async {
 
 void addLevelCodeToClipboard(context, textToCopy){
   Clipboard.setData(ClipboardData(text: textToCopy)).then((_) {
-    showSnackDialog(snackText: 'Copied level code to your clipboard!', context: context);
+    Get.snackbar('Copied level code to your clipboard!', '', snackPosition: SnackPosition.BOTTOM, maxWidth: 300, barBlur: 0, isDismissible: true, backgroundColor: Color.fromARGB(255, 36, 36, 36), colorText: Color.fromARGB(255, 214, 214, 214));
   });
-}
-
-showAlertDialog({String errorText = "An error occured!", required BuildContext context, error = '', String buttonText = 'Ok'}) {
-  Widget okButton = TextButton(
-    child: Text(buttonText),
-    onPressed: () { Navigator.of(context).pop(); },
-  );
-  AlertDialog alert = AlertDialog(
-    title: Text("Error"),
-    content: Text('$errorText\n\n($error)'),
-    actions: [
-      okButton,
-    ],
-  );
-  showDialog(
-    context: context,
-    builder: (BuildContext context) {
-      return alert;
-    },
-  );
-}
-
-void showSnackDialog({required snackText, required BuildContext context}){
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(snackText))
-  );
 }

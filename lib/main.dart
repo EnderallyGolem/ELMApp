@@ -7,6 +7,8 @@ import 'pages/4_custom_page.dart';
 import 'pages/5_summary_page.dart';
 import 'pages/6_codename_page.dart';
 import 'pages/7_misc_page.dart';
+import 'package:get/get.dart';
+import 'package:double_back_to_close_app/double_back_to_close_app.dart';
 
 void main() {
   runApp(const MyApp());
@@ -25,7 +27,7 @@ class MyApp extends StatelessWidget {
 
         ChangeNotifierProvider<ProviderMiscState>(create: (_) => ProviderMiscState())
       ],
-      child: MaterialApp(
+      child: GetMaterialApp(
         title: 'ELM App',
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Color.fromARGB(255, 58, 104, 183)),
@@ -35,15 +37,6 @@ class MyApp extends StatelessWidget {
       ),
     );
   }
-}
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
 }
 
 
@@ -67,13 +60,20 @@ class ProviderMainState extends ChangeNotifier {
     //Store information such as number of waves, flag interval, etc... here
   };
 
-  /// Resets level code to empty. Ran when failed to import to prevent errors. TO-DO: Run when clicked reset button
+  /// Resets level code to empty.
   static void resetLevelCode(){
     print('Resetting level code...');
+    levelCode = {'objects': [], 'levelModules': [], 'waveModules': [],};
+    waveCode = {'objects': [], 'levelModules': [], 'waveModules': []};
+    initialCode = {'objects': [], 'levelModules': [], 'waveModules': []};
+    settingCode = {'objects': [], 'levelModules': [], 'waveModules': []};
+    customCode = {'objects': [], 'levelModules': [], 'waveModules': []};
     updateLevelCode();
+    importLevelCode();
   }
 
-  static void importLevelCode({importedCode=''}){
+  static void importLevelCode({importedCode=null}){
+    importedCode ??= {'objects': [], 'levelModules': [], 'waveModules': [],};
     print('Imported Level Code: $importedCode');
     //levelCode['objects'] = importedCode['objects'];
     levelCode = importedCode;
@@ -86,7 +86,7 @@ class ProviderMainState extends ChangeNotifier {
   }
 
   /// 
-  /// Update level code.
+  /// Update level code. Called when code is updated in respective (and by respective I mean any) pages.
   /// Note: Level code is stored in main.dart parameters.
   /// When the respective pages is changed, the main code is set to the page code.
   /// 
@@ -108,6 +108,14 @@ class ProviderMainState extends ChangeNotifier {
   }
 }
 
+class MyHomePage extends StatefulWidget {
+  const MyHomePage({super.key, required this.title});
+
+  final String title;
+
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
 
 class _MyHomePageState extends State<MyHomePage> {
   int _currentIndex = 0;
@@ -128,7 +136,11 @@ class _MyHomePageState extends State<MyHomePage> {
       appBar: AppBar(
         //title: Text('Bottom Tab Example'),
       ),
-      body: _pages[_currentIndex][0],
+      body: DoubleBackToCloseApp(
+        snackBar: const SnackBar(
+          content: Text('Tap back again to quit the app!'),
+        ), 
+        child: _pages[_currentIndex][0]),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (int index) {
