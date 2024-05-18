@@ -1,15 +1,8 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
-import 'package:flutter/widgets.dart';
-import 'dart:ui';
 import 'package:provider/provider.dart';
 import '../main.dart';
 import '/util_classes.dart';
 import 'package:get/get.dart';
-
-
-//TO-DO!!!!!!!!!!!!!! Swap out animatedlistplus for doing it manually because animatedlistplus dies with long lists :/
 
 class ProviderWaveState extends ChangeNotifier {
 
@@ -24,7 +17,7 @@ class ProviderWaveState extends ChangeNotifier {
   }
 
   //Generate the updated waveCode, then updates the waveCode in main.dart with it
-  static void updateWaveCodeInMain({required waveModuleArr}){
+  void updateWaveCodeInMain({required waveModuleArr}){
 
     dynamic waveCode = {
       "objects": [],
@@ -65,7 +58,7 @@ class WaveModule extends StatefulWidget {
 
   WaveModule({required this.waveIndex, this.value = '', this.controllers = null}) {
     controllers ??= TextEditingController(text: value); //Sets a value if null
-    display = 'Wave ${waveIndex + 1}';
+    display = '${'waves_wave'.tr} ${waveIndex + 1}';
   }
 
   static Widget _buildAnimatedWaveModule(int waveIndex, Animation<double> animation) {
@@ -199,7 +192,7 @@ class _WaveModuleState extends State<WaveModule> {
             ElmIconButton(iconData: Icons.delete, iconColor: ProviderWaveState.wavesColour, 
             onPressFunctions: (){
               //TO-DO: Option to disable warning
-              Get.defaultDialog(title: 'Delete Wave?', middleText: 'Are you sure you want to delete this wave?', textCancel: 'Cancel', textConfirm: 'Delete it!', onConfirm: (){
+              Get.defaultDialog(title: 'waves_deletewave_warning_title'.tr, middleText:  'waves_deletewave_warning_desc'.tr, textCancel: 'Cancel'.tr, textConfirm: 'generic_confirm'.tr, onConfirm: (){
                 WaveModule.deleteModule(
                   waveIndex: widget.waveIndex,
                   appWaveState: appWaveState,
@@ -266,7 +259,7 @@ class _Page_WaveState extends State<Page_Wave> {
     var appWaveState = context.watch<ProviderWaveState>();
     return Scaffold(
       appBar: AppBar(
-        title: Text('Waves'),
+        title: Text('page_waves'.tr),
         backgroundColor: Color.fromARGB(255, 175, 214, 249),
         foregroundColor: Color.fromARGB(169, 3, 35, 105),
         actions: [
@@ -274,7 +267,7 @@ class _Page_WaveState extends State<Page_Wave> {
             onPressed: () {
               WaveModule.addModuleBelow(waveIndex: -1, newValue: null, appWaveState: appWaveState);
             },
-            child: Row(children: [Icon(Icons.add, color: ProviderWaveState.wavesColour,), Text('Add Wave', selectionColor: ProviderWaveState.wavesColour,)])
+            child: Row(children: [Icon(Icons.add, color: ProviderWaveState.wavesColour,), Text('waves_addwave'.tr, selectionColor: ProviderWaveState.wavesColour,)])
           ),
         ],
       ),

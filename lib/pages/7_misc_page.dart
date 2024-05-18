@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../main.dart';
-import '/util_classes.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
@@ -55,7 +54,7 @@ class _Page_MiscState extends State<Page_Misc> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Misc'),
+        title: Text('page_misc'.tr),
         backgroundColor: Color.fromARGB(255, 249, 218, 175),
         foregroundColor: Color.fromARGB(169, 105, 64, 3),
         actions: [],
@@ -70,7 +69,7 @@ class _Page_MiscState extends State<Page_Misc> {
                   _importFile(context: context, appMainState: appMainState, appMiscState: appMiscState);
                   appMiscState.updateMiscState();
                 },
-                child: Text('Import Level'),
+                child: Text('misc_importlevel'.tr),
               ),
               ElevatedButton(
                 onPressed: () {
@@ -83,7 +82,7 @@ class _Page_MiscState extends State<Page_Misc> {
                   requestAndriodPermissions();
                   _exportFile(context, ProviderMiscState.levelJson);
                 },
-                child: Text('Export Level'),
+                child: Text('misc_exportlevel'.tr),
               ),
             ]
           ),
@@ -94,18 +93,14 @@ class _Page_MiscState extends State<Page_Misc> {
                   backgroundColor: Color.fromRGBO(255, 180, 180, 1),
                 ),
                 onPressed: () {
-                  Get.defaultDialog(title: 'Reset level?', middleText: 'This will clear all data in the level.\nAre you sure about this?', textCancel: 'Cancel', textConfirm: 'Reset level!', onConfirm: (){
+                  Get.defaultDialog(title: 'misc_resetlevel_warning_title'.tr, middleText: 'misc_resetlevel_warning_desc'.tr, textCancel: 'Cancel'.tr, textConfirm: 'Confirm'.tr,
+                  onConfirm: (){
+                    ProviderMainState.resetLevelCode();
+                    appMiscState.updateMiscState();
                     Get.back();
-                    Get.defaultDialog(title: 'Reset level?', middleText: "Are you absolutely sure?!\nThere's no undo button!", textCancel: 'Cancel', textConfirm: 'Reset it!!!!', 
-                    onConfirm: (){
-                      ProviderMainState.resetLevelCode();
-                      appMiscState.updateMiscState();
-                      Get.back();
-                    },
-                  );
                   });
                 },
-                child: Text('Reset Level'),
+                child: Text('misc_resetlevel'.tr),
               ),
             ],
           ),
@@ -121,7 +116,7 @@ void _importFile({required dynamic context, required ProviderMainState appMainSt
     type: FileType.custom,
     allowedExtensions: ['json', 'txt'],
     allowMultiple: false,
-    dialogTitle: 'Level File',
+    dialogTitle: 'misc_importlevel_dialog'.tr,
     withReadStream: false,
     withData: true,
   );
@@ -138,7 +133,7 @@ void _importFile({required dynamic context, required ProviderMainState appMainSt
         ProviderMainState.importLevelCode(importedCode: importedFile);
         appMiscState.updateMiscState();
       } catch (e) {
-        Get.defaultDialog(title: "Error", middleText: "Something went wrong! The file's json format might not be correct!\n\n$e", textCancel: 'Ok');
+        Get.defaultDialog(title: 'generic_error'.tr, middleText: "${'misc_importlevel_error_desc'.tr}\n\n$e", textCancel: 'generic_ok'.tr);
         ProviderMainState.resetLevelCode(); //Clear level code to prevent errors
         appMiscState.updateMiscState();
     }
@@ -150,7 +145,7 @@ void _exportFile(BuildContext context, String levelJson) async {
     String? outputFilePath = await FilePicker.platform.saveFile(
       type: FileType.custom,
       allowedExtensions: ['json'],
-      dialogTitle: 'Please select an output file:',
+      dialogTitle: 'misc_exportlevel_dialog'.tr,
       fileName: importedFileName,
       //initialDirectory: '',
       bytes: utf8.encode(''),
@@ -163,7 +158,7 @@ void _exportFile(BuildContext context, String levelJson) async {
 
     }
   } catch (e) {
-    Get.defaultDialog(title: "Error", middleText: "Something went wrong! Uh oh!\n\n$e", textCancel: 'Ok');
+    Get.defaultDialog(title: 'generic_error'.tr, middleText: "${'generic_error_desc'.tr}\n\n$e", textCancel: 'generic_ok'.tr);
   }
 }
 
@@ -178,7 +173,7 @@ void saveFileToCustomDirectory({required String directoryPath, required String c
     print('File saved successfully at: ${file.path}');
   } catch (e) {
     print('Unable to create file: $e');
-    Get.defaultDialog(title: "Error", middleText: "Unable to create file.\n\n$e", textCancel: 'Ok');
+    Get.defaultDialog(title: 'generic_error'.tr, middleText: "${'misc_exportlevel_error_desc'.tr}\n\n$e", textCancel: 'generic_cancel'.tr);
   }
 }
 
@@ -194,6 +189,6 @@ void requestAndriodPermissions() async {
 
 void addLevelCodeToClipboard(context, textToCopy){
   Clipboard.setData(ClipboardData(text: textToCopy)).then((_) {
-    Get.snackbar('Copied level code to your clipboard!', '', snackPosition: SnackPosition.BOTTOM, maxWidth: 300, barBlur: 0, isDismissible: true, backgroundColor: Color.fromARGB(255, 36, 36, 36), colorText: Color.fromARGB(255, 214, 214, 214));
+    Get.snackbar('misc_copylevel'.tr, '', snackPosition: SnackPosition.BOTTOM, maxWidth: 300, barBlur: 0, isDismissible: true, backgroundColor: Color.fromARGB(255, 36, 36, 36), colorText: Color.fromARGB(255, 214, 214, 214));
   });
 }

@@ -7,6 +7,7 @@ import 'pages/4_custom_page.dart';
 import 'pages/5_summary_page.dart';
 import 'pages/6_codename_page.dart';
 import 'pages/7_misc_page.dart';
+import '/strings.dart';
 import 'package:get/get.dart';
 import 'package:double_back_to_close_app/double_back_to_close_app.dart';
 
@@ -25,10 +26,17 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider<ProviderMainState>(create: (_) => ProviderMainState()),
         ChangeNotifierProvider<ProviderWaveState>(create: (_) => ProviderWaveState()),
 
+        ChangeNotifierProvider<ProviderCustomState>(create: (_) => ProviderCustomState()),
+
         ChangeNotifierProvider<ProviderMiscState>(create: (_) => ProviderMiscState())
       ],
       child: GetMaterialApp(
         title: 'ELM App',
+        translations: ElmStrings(),
+        locale: Get.deviceLocale,
+        fallbackLocale: const Locale('en', null),
+        //Update locale: Get.updateLocale(Locale('en', 'US'))
+        //Possible TO-DO: Dark/light mode swap?
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Color.fromARGB(255, 58, 104, 183)),
           useMaterial3: true,
@@ -121,13 +129,13 @@ class _MyHomePageState extends State<MyHomePage> {
   int _currentIndex = 0;
 
   final List<List<dynamic>> _pages = [
-    [Page_Wave(), "Waves"],
-    [Page_Initial(), "Initial"],
-    [Page_Setting(), "Settings"],
-    [Page_Custom(), "Custom"],
-    [Page_Summary(), "Summary"],
-    [Page_Codename(), "Codenames"],
-    [Page_Misc(), "Misc"],
+    [Page_Wave(), 'page_waves'.tr],
+    [Page_Initial(), 'page_inital'.tr],
+    [Page_Setting(), 'page_setting'.tr],
+    [Page_Custom(), 'page_custom'.tr],
+    [Page_Summary(), 'page_summary'.tr],
+    [Page_Codename(), 'page_codename'.tr],
+    [Page_Misc(), 'page_misc'.tr],
   ];
 
   @override
