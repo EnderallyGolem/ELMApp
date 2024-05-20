@@ -41,7 +41,7 @@ class MyApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: Color.fromARGB(255, 58, 104, 183)),
           useMaterial3: true,
         ),
-        home: const MyHomePage(title: 'ELM App Home Page'),
+        home: const MyHomePage(),
       ),
     );
   }
@@ -107,7 +107,7 @@ class ProviderMainState extends ChangeNotifier {
       'waveModules': [...waveCode['objects'], ...initialCode['waveModules'], ...settingCode['waveModules'], ...customCode['waveModules']],
     };
 
-    print('Updating level: $levelCode');
+    debugPrint('main | updateLevelCode: Updating level to new code: $levelCode');
     ProviderMiscState.getCodeShown;
   }
 
@@ -117,9 +117,7 @@ class ProviderMainState extends ChangeNotifier {
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  final String title;
+  const MyHomePage({super.key});
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -141,9 +139,6 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        //title: Text('Bottom Tab Example'),
-      ),
       body: DoubleBackToCloseApp(
         snackBar: const SnackBar(
           content: Text('Tap back again to quit the app!'),

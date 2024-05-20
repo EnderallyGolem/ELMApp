@@ -7,25 +7,25 @@ import 'package:get/get.dart';
 
 class ProviderCustomState extends ChangeNotifier implements GenericProviderState {
 
-  List<ElmModuleList> elmModuleListArr = [];
-  bool allowCallback = false;
-  Color themeColour = Color.fromARGB(255, 58, 104, 183); //Change this colour if needed
-  GlobalKey<AnimatedListState> animatedModuleListKey = GlobalKey<AnimatedListState>();
-  bool updateCode = true;
+  @override Color themeColour = Color.fromARGB(255, 58, 104, 183); //Change this colour if needed
+  @override bool isVertical = false; //Change this to false if horizontal
 
-  @override
-  Type getProviderType() => ProviderCustomState; // !!! Edit ProviderNewState!
+  @override List<ElmModuleList> elmModuleListArr = [];
+  @override GlobalKey<AnimatedListState> animatedModuleListKey = GlobalKey<AnimatedListState>();
+  @override bool updateCode = true;
+  @override ScrollController scrollController = ScrollController();
+  @override double scrollOffset = 0.0;
 
   // Updates UI and main level code
-  @override
-  void updateModuleState(){
+  @override void updateModuleState(){
+    debugPrint('custom page | updateModuleState');
     notifyListeners();                                              //Updates the displayed module UI state
     updateModuleCodeInMain(elmModuleListArr: elmModuleListArr);     //Updates module code in main.dart
     ProviderMainState.updateLevelCode();                            //Updates the full code in main.dart
   }
 
   // Generate the updated waveCode, then updates the waveCode in main.dart with it
-  void updateModuleCodeInMain({required elmModuleListArr}){
+  @override void updateModuleCodeInMain({required elmModuleListArr}){
     dynamic moduleCode = {"objects": [], "levelModules": [], "waveModules": [],};
   
     for (int moduleIndex = 0; moduleIndex < elmModuleListArr.length; moduleIndex++){
@@ -35,10 +35,10 @@ class ProviderCustomState extends ChangeNotifier implements GenericProviderState
     ProviderMainState.customCode = moduleCode;
   }
 
-  // Imports code from main. allowCallback true means list is recreated when first loaded.
+  // Imports code from main. updateCode true means list is recreated when first loaded.
   // Enable if code is imported (it should be set to false when done)
-  void importModuleCode({dynamic moduleCodeToAdd = ''}){
-    allowCallback = true;
+  @override void importModuleCode({dynamic moduleCodeToAdd = ''}){
+    updateCode = true;
     elmModuleListArr = [];
     for(int moduleIndex = 0; moduleIndex < moduleCodeToAdd.length; moduleIndex++){
       elmModuleListArr.insert(moduleIndex, ElmModuleList(moduleIndex: moduleIndex, value: moduleCodeToAdd[moduleIndex].toString())); //TO-DO: Change value
@@ -52,43 +52,30 @@ class Page_Custom extends StatefulWidget {
 }
 
 class _Page_CustomState extends State<Page_Custom> {
-  //UI for all waves ------------------------------------------------------------------------------
+  void initState() {
+    super.initState();
+    var appState = context.read<ProviderCustomState>();
+    appState.scrollController.addListener(_scrollListener);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      appState.scrollController.jumpTo(appState.scrollOffset); // Restore scroll position
+    });
+  }
+  void dispose() {
+    super.dispose();
+  }
+  void _scrollListener() {
+    if (mounted){
+      var appState = context.read<ProviderCustomState>();
+      appState.scrollOffset = appState.scrollController.offset;
+    }
+  }
   @override
   Widget build(BuildContext context) {
     var appState = context.watch<ProviderCustomState>();
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('page_custom'.tr),
-        backgroundColor: Color.fromARGB(255, 175, 214, 249),
-        foregroundColor: Color.fromARGB(169, 3, 35, 105),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              ElmModuleList.addModuleBelow(moduleIndex: -1, newValue: null, appState: appState);
-            },
-            child: Row(children: [Icon(Icons.add, color: appState.themeColour,), Text('custom_addcode'.tr, selectionColor: appState.themeColour,)])
-          ),
-        ],
-      ),
-      body: AnimatedList(
-        key: appState.animatedModuleListKey,
-        initialItemCount: appState.elmModuleListArr.length,
-        itemBuilder: (context, index, animation) {
-          return FadeTransition(
-            opacity: animation,
-            child: SizeTransition(
-              sizeFactor: elmSizeTween(animation: animation),
-              axis: Axis.vertical,
-              axisAlignment: 0,
-              child: ElmModuleList<ProviderCustomState>(
-                moduleIndex: index,
-                value: appState.elmModuleListArr[index].value,
-                controllers: appState.elmModuleListArr[index].controllers,
-              ),
-            ),
-          );
-        },
-      ),
+    return ElmModuleListWidget(
+      appState: appState,
+      title: 'page_custom'.tr,
+      addModuleText: 'custom_addcode'.tr
     );
   }
 }

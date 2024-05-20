@@ -25,8 +25,8 @@ class ElmIconButton extends StatelessWidget {
   final IconData iconData;
   final Color iconColor;
   final Function onPressFunctions;
-  double buttonWidth;
-  double buttonHeight;
+  final double buttonWidth;
+  final double buttonHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -53,60 +53,19 @@ class ElmIconButton extends StatelessWidget {
 
 
 // ElmModuleList
-// To use: Add the following below (change ProviderNewState to something else):
-
-/*
-class ProviderCustomState extends ChangeNotifier implements GenericProviderState {
-
-  List<ElmModuleList> elmModuleListArr = [];
-  bool allowCallback = false;
-  Color themeColour = Color.fromARGB(255, 58, 104, 183); //Change this colour if needed
-  GlobalKey<AnimatedListState> animatedModuleListKey = GlobalKey<AnimatedListState>();
-  bool updateCode = true;
-
-  @override
-  Type getProviderType() => ProviderCustomState; // !!! Edit ProviderNewState!
-
-  // Updates UI and main level code
-  @override
-  void updateModuleState(){
-    notifyListeners();                                              //Updates the displayed module UI state
-    updateModuleCodeInMain(elmModuleListArr: elmModuleListArr);     //Updates module code in main.dart
-    ProviderMainState.updateLevelCode();                            //Updates the full code in main.dart
-  }
-
-  // Generate the updated waveCode, then updates the waveCode in main.dart with it
-  void updateModuleCodeInMain({required elmModuleListArr}){
-    dynamic moduleCode = {"objects": [], "levelModules": [], "waveModules": [],};
-  
-    for (int moduleIndex = 0; moduleIndex < elmModuleListArr.length; moduleIndex++){
-      //TO-DO: Proper updating of moduleCode once the proper module format is made
-      moduleCode["objects"].add(elmModuleListArr[moduleIndex].value);
-    }
-    ProviderMainState.customCode = moduleCode;
-  }
-
-  // Imports code from main. allowCallback true means list is recreated when first loaded.
-  // Enable if code is imported (it should be set to false when done)
-  void importModuleCode({dynamic moduleCodeToAdd = ''}){
-    allowCallback = true;
-    elmModuleListArr = [];
-    for(int moduleIndex = 0; moduleIndex < moduleCodeToAdd.length; moduleIndex++){
-      elmModuleListArr.insert(moduleIndex, ElmModuleList(moduleIndex: moduleIndex, value: moduleCodeToAdd[moduleIndex].toString())); //TO-DO: Change value
-    }
-  }
-}
-*/
+// To use: Copy from custom page lol
 
 abstract class GenericProviderState {
 
   late List<ElmModuleList> elmModuleListArr = [];
-  late bool allowCallback = false;
   late Color themeColour;
   late final GlobalKey<AnimatedListState> animatedModuleListKey;
   late bool updateCode;
-  Type getProviderType();
+  late bool isVertical;
+  late ScrollController scrollController;
+  late double scrollOffset;
 
+  void dispose();
   void updateModuleState();
   void updateModuleCodeInMain({required elmModuleListArr});
   void importModuleCode({dynamic moduleCodeToAdd = ''});
@@ -125,10 +84,12 @@ class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
     display = '${moduleIndex + 1}';
   }
 
-  static Widget _buildAnimatedElmModuleList<T extends GenericProviderState>(int moduleIndex, Animation<double> animation) {
+  static Widget _buildAnimatedElmModuleList<T extends GenericProviderState>({required int moduleIndex, required Animation<double> animation, required T appState}) {
     return FadeTransition(
       opacity: animation,
       child: SizeTransition(
+        axisAlignment: 0,
+        axis: appState.isVertical ? Axis.vertical : Axis.horizontal,
         sizeFactor: elmSizeTween(animation: animation),
         child: ElmModuleList<T>(moduleIndex: moduleIndex),
       ),
@@ -139,8 +100,9 @@ class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
     appState.animatedModuleListKey.currentState!.removeItem(
       moduleIndex,
       duration: Duration(milliseconds: 150),
-      (context, animation) => _buildAnimatedElmModuleList<T>(moduleIndex, animation)
+      (context, animation) => _buildAnimatedElmModuleList<T>(moduleIndex: moduleIndex, animation: animation, appState: appState)
     );
+    debugPrint('util_classes | deleteModule: Deleted module for index ${moduleIndex}');
   }
 
   static void addModuleBelow<T extends GenericProviderState>({required int moduleIndex, dynamic newValue = null, required T appState}) {
@@ -151,23 +113,23 @@ class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
       moduleIndex+1, 
       duration: Duration(milliseconds: 150)
     );
-    print('hu');
+    debugPrint('util_classes | addModuleBelow: Added value ${newValue} at index ${moduleIndex}');
   }
 
-  static void updateAllModule<T extends GenericProviderState>({int firstmoduleIndex = 0, required T appState}) {
+  static void updateAllModule<T extends GenericProviderState>({required T appState}) {
     appState.updateModuleState();
-    print(appState.elmModuleListArr);
-    print('huaa');
+    debugPrint('util_classes | updateAllModule: Updated all modules');
   }
 
   static void updateModuleValue<T extends GenericProviderState>({int moduleIndex = 0, dynamic newValue, required T appState}) {
     appState.elmModuleListArr[moduleIndex].value = newValue;
     appState.updateModuleState();
-    print('hua');
+    debugPrint('util_classes | updateModuleValue: Updated module for index ${moduleIndex}. New value: ${newValue}');
   }
 
   static void updateModuleValueNoReload<T extends GenericProviderState>({int moduleIndex = 0, dynamic newValue, required T appState}) {
     appState.elmModuleListArr[moduleIndex].value = newValue;
+    debugPrint('util_classes | updateModuleValueNoReload: Updated module for index ${moduleIndex}. New value: ${newValue}');
   }
 
   @override
@@ -197,6 +159,31 @@ class _ElmModuleListState<T extends GenericProviderState> extends State<ElmModul
       }
     });
 
+    bool isVertical = appGenericState.isVertical;
+    if(isVertical){
+      return elmSingleModuleWidget(widget: widget, appGenericState: appGenericState, isVertical: isVertical);
+    } else {
+      return IntrinsicWidth(
+        child: elmSingleModuleWidget(widget: widget, appGenericState: appGenericState, isVertical: isVertical),
+      );
+    }
+  }
+}
+
+class elmSingleModuleWidget<T extends GenericProviderState> extends StatelessWidget {
+  const elmSingleModuleWidget({
+    super.key,
+    required this.widget,
+    required this.appGenericState,
+    required this.isVertical,
+  });
+
+  final ElmModuleList widget;
+  final T appGenericState;
+  final bool isVertical;
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       key: ValueKey(widget.value),
       children: [
@@ -204,7 +191,7 @@ class _ElmModuleListState<T extends GenericProviderState> extends State<ElmModul
           children: [
             Expanded(child: Text(widget.display)),
             //Shift Up
-            ElmIconButton(iconData: Icons.arrow_upward, iconColor: appGenericState.themeColour, buttonWidth: 45,
+            ElmIconButton(iconData: isVertical ? Icons.arrow_upward : Icons.arrow_back, iconColor: appGenericState.themeColour, buttonWidth: 45,
               onPressFunctions: () {
                 ElmModuleList.addModuleBelow(
                   moduleIndex: widget.moduleIndex - 2,
@@ -217,13 +204,12 @@ class _ElmModuleListState<T extends GenericProviderState> extends State<ElmModul
                   context: context,
                 );
                 ElmModuleList.updateAllModule(
-                  firstmoduleIndex: widget.moduleIndex,
                   appState: appGenericState,
                 );
               }
             ),
             //Shift Down
-            ElmIconButton(iconData: Icons.arrow_downward, iconColor: appGenericState.themeColour, buttonWidth: 45,
+            ElmIconButton(iconData: isVertical ? Icons.arrow_downward : Icons.arrow_forward, iconColor: appGenericState.themeColour, buttonWidth: 45,
               onPressFunctions: () {
                 ElmModuleList.addModuleBelow(
                   moduleIndex: widget.moduleIndex + 1,
@@ -236,7 +222,6 @@ class _ElmModuleListState<T extends GenericProviderState> extends State<ElmModul
                   context: context,
                 );
                 ElmModuleList.updateAllModule(
-                  firstmoduleIndex: widget.moduleIndex,
                   appState: appGenericState,
                 );
               }
@@ -250,7 +235,6 @@ class _ElmModuleListState<T extends GenericProviderState> extends State<ElmModul
                   newValue: widget.value,
                 );
                 ElmModuleList.updateAllModule(
-                  firstmoduleIndex: widget.moduleIndex,
                   appState: appGenericState,
                 );
               }
@@ -266,12 +250,11 @@ class _ElmModuleListState<T extends GenericProviderState> extends State<ElmModul
                   context: context
                 );
                 ElmModuleList.updateAllModule(
-                  firstmoduleIndex: widget.moduleIndex,
                   appState: appGenericState,
                 );
                 Get.back();
               });
-
+    
             }),
             //Add
             ElmIconButton(iconData: Icons.add, iconColor: appGenericState.themeColour, 
@@ -282,7 +265,6 @@ class _ElmModuleListState<T extends GenericProviderState> extends State<ElmModul
                   newValue: null,
                 );
                 ElmModuleList.updateAllModule(
-                  firstmoduleIndex: widget.moduleIndex,
                   appState: appGenericState,
                 );
               }
@@ -317,4 +299,57 @@ dynamic elmSizeTween({required animation}) {
     parent: animation, // Use the provided animation
     curve: Curves.linear, // Apply an ease-out curve
   );
+}
+
+class ElmModuleListWidget<T extends GenericProviderState> extends StatelessWidget {
+  ElmModuleListWidget({
+    super.key,
+    required this.appState,
+    required this.title,
+    required this.addModuleText,
+  });
+
+  final T appState;
+  final String title;
+  final String addModuleText;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+        backgroundColor: Color.fromARGB(255, 175, 214, 249),
+        foregroundColor: Color.fromARGB(169, 3, 35, 105),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              ElmModuleList.addModuleBelow(moduleIndex: -1, newValue: null, appState: appState);
+            },
+            child: Row(children: [Icon(Icons.add, color: appState.themeColour,), Text(addModuleText, selectionColor: appState.themeColour,)])
+          ),
+        ],
+      ),
+      body: AnimatedList(
+        scrollDirection: appState.isVertical ? Axis.vertical : Axis.horizontal,
+        key: appState.animatedModuleListKey,
+        initialItemCount: appState.elmModuleListArr.length,
+        controller: appState.scrollController,
+        itemBuilder: (context, index, animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: SizeTransition(
+              sizeFactor: elmSizeTween(animation: animation),
+              axis: appState.isVertical ? Axis.vertical : Axis.horizontal,
+              axisAlignment: 0,
+              child: ElmModuleList<T>(
+                moduleIndex: index,
+                value: appState.elmModuleListArr[index].value,
+                controllers: appState.elmModuleListArr[index].controllers,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 }

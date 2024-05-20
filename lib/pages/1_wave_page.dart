@@ -9,6 +9,8 @@ class ProviderWaveState extends ChangeNotifier {
   static List<WaveModule> waveModuleArr = [];
   static bool allowCallback = false;
   static Color wavesColour = Color.fromARGB(255, 58, 104, 183);
+  static ScrollController scrollController = ScrollController();
+  static double scrollOffset = 0.0;
 
   void updateWaveState(){
     notifyListeners();                                    //Updates the displayed wave UI state
@@ -66,6 +68,8 @@ class WaveModule extends StatefulWidget {
       opacity: animation,
       child: SizeTransition(
         sizeFactor: waveSizeTween(animation: animation),
+        axis: Axis.vertical,
+        axisAlignment: 0,
         child: WaveModule(waveIndex: waveIndex),
       ),
     );
@@ -253,6 +257,22 @@ class Page_Wave extends StatefulWidget {
 
 final GlobalKey<AnimatedListState> animatedWaveListKey = GlobalKey<AnimatedListState>();
 class _Page_WaveState extends State<Page_Wave> {
+  @override
+  void initState() {
+    ProviderWaveState.scrollController.addListener(_scrollListener);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ProviderWaveState.scrollController.jumpTo(ProviderWaveState.scrollOffset); // Restore scroll position
+    });
+    super.initState();
+  }
+  void dispose() {
+    super.dispose();
+  }
+  void _scrollListener() {
+    if (mounted){
+      ProviderWaveState.scrollOffset = ProviderWaveState.scrollController.offset;
+    }
+  }
   //UI for all waves ------------------------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
@@ -272,6 +292,8 @@ class _Page_WaveState extends State<Page_Wave> {
         ],
       ),
       body: AnimatedList(
+        controller: ProviderWaveState.scrollController,
+        scrollDirection: Axis.vertical,
         key: animatedWaveListKey,
         initialItemCount: ProviderWaveState.waveModuleArr.length,
         itemBuilder: (context, index, animation) {
