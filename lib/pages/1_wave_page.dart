@@ -141,7 +141,7 @@ class _WaveModuleState extends State<WaveModule> {
           children: [
             Expanded(child: Text(widget.display)),
             //Shift Up
-            ElmIconButton(iconData: Icons.arrow_upward, iconColor: ProviderWaveState.wavesColour, buttonWidth: 45,
+            ElmIconButton(iconData: Icons.arrow_upward, iconColor: ProviderWaveState.wavesColour, buttonWidth: 35,
               onPressFunctions: () {
                 WaveModule.addModuleBelow(
                   waveIndex: widget.waveIndex - 2,
@@ -160,7 +160,7 @@ class _WaveModuleState extends State<WaveModule> {
               }
             ),
             //Shift Down
-            ElmIconButton(iconData: Icons.arrow_downward, iconColor: ProviderWaveState.wavesColour, buttonWidth: 45,
+            ElmIconButton(iconData: Icons.arrow_downward, iconColor: ProviderWaveState.wavesColour, buttonWidth: 35,
               onPressFunctions: () {
                 WaveModule.addModuleBelow(
                   waveIndex: widget.waveIndex + 1,

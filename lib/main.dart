@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'pages/1_wave_page.dart';
@@ -10,6 +11,8 @@ import 'pages/7_misc_page.dart';
 import '/strings.dart';
 import 'package:get/get.dart';
 import 'package:double_back_to_close_app/double_back_to_close_app.dart';
+import '/util_classes.dart';
+import 'dart:convert';
 
 void main() {
   runApp(const MyApp());
@@ -50,6 +53,12 @@ class MyApp extends StatelessWidget {
 
 //APPSTATE -------------------------------------------------
 class ProviderMainState extends ChangeNotifier {
+
+  //Values accessible anywhere!
+  static dynamic global = {
+    'eventJson': '',
+    'waveCount': 0, //TO-DO: stuff for this. Create function to update when importing level, and when editing relevant pages.
+  };
 
   static dynamic levelCode = {
     //Everything inside is JSON
@@ -135,6 +144,16 @@ class _MyHomePageState extends State<MyHomePage> {
     [Page_Codename(), 'page_codename'.tr],
     [Page_Misc(), 'page_misc'.tr],
   ];
+
+  @override
+  void initState(){
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      ProviderMainState.global['eventJson'] = await loadJson(path: 'assets/json/default/events.json');
+      debugPrint('is anything happening');
+      debugPrint('${ProviderMainState.global['eventJson']['test event']['inputs']}');
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

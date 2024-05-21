@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../main.dart';
 import 'package:get/get.dart';
 import 'package:flutter/scheduler.dart';
+import 'dart:convert';
+import 'package:flutter/services.dart'; 
 
 
 /// A small button that only consists of an icon and runs some functions.
@@ -18,8 +20,10 @@ class ElmIconButton extends StatelessWidget {
     required this.iconData,
     required this.iconColor,
     required this.onPressFunctions,
-    this.buttonWidth = 60,
-    this.buttonHeight = 30,
+    this.buttonWidth = 45,
+    this.buttonHeight = 25,
+    this.iconSize = 20,
+    this.enabled = true,
   });
 
   final IconData iconData;
@@ -27,29 +31,41 @@ class ElmIconButton extends StatelessWidget {
   final Function onPressFunctions;
   final double buttonWidth;
   final double buttonHeight;
+  final double iconSize;
+  final bool? enabled;
 
   @override
   Widget build(BuildContext context) {
-    return ElevatedButton(
-      //Copy Wave Button
-      style: ElevatedButton.styleFrom(
-        padding: EdgeInsets.fromLTRB(0, 0, 0, 0),
-        minimumSize: Size(buttonWidth, buttonHeight),
-        fixedSize: Size(buttonWidth, buttonHeight),
-      ),
-      onPressed: () {
-        onPressFunctions();
-      },
-      child: Icon(
-        iconData,
-        color: iconColor,
+    return Offstage(
+      offstage: enabled == false,
+      child: SizedBox(
+        width: buttonWidth,
+        height: buttonHeight,
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            padding: EdgeInsets.fromLTRB(0, 0, 0, 0),
+          ),
+          onPressed: () {
+            onPressFunctions();
+          },
+          child: Icon(
+            iconData,
+            color: iconColor,
+            size: iconSize,
+          ),
+        ),
       ),
     );
   }
 }
 
 
-
+Future loadJson({required String path}) async {
+  String data = await rootBundle.loadString(path);
+  var jsonResult = json.decode(data);
+  debugPrint('Loaded json at $path: $jsonResult');
+  return jsonResult;
+}
 
 
 // ElmModuleList
@@ -64,6 +80,7 @@ abstract class GenericProviderState {
   late bool isVertical;
   late ScrollController scrollController;
   late double scrollOffset;
+  late Map<String, bool> enabledButtons;
 
   void dispose();
   void updateModuleState();
@@ -161,17 +178,17 @@ class _ElmModuleListState<T extends GenericProviderState> extends State<ElmModul
 
     bool isVertical = appGenericState.isVertical;
     if(isVertical){
-      return elmSingleModuleWidget(widget: widget, appGenericState: appGenericState, isVertical: isVertical);
+      return ElmSingleModuleMainWidget(widget: widget, appGenericState: appGenericState, isVertical: isVertical);
     } else {
       return IntrinsicWidth(
-        child: elmSingleModuleWidget(widget: widget, appGenericState: appGenericState, isVertical: isVertical),
+        child: ElmSingleModuleMainWidget(widget: widget, appGenericState: appGenericState, isVertical: isVertical),
       );
     }
   }
 }
 
-class elmSingleModuleWidget<T extends GenericProviderState> extends StatelessWidget {
-  const elmSingleModuleWidget({
+class ElmSingleModuleMainWidget<T extends GenericProviderState> extends StatelessWidget {
+  const ElmSingleModuleMainWidget({
     super.key,
     required this.widget,
     required this.appGenericState,
@@ -191,7 +208,7 @@ class elmSingleModuleWidget<T extends GenericProviderState> extends StatelessWid
           children: [
             Expanded(child: Text(widget.display)),
             //Shift Up
-            ElmIconButton(iconData: isVertical ? Icons.arrow_upward : Icons.arrow_back, iconColor: appGenericState.themeColour, buttonWidth: 45,
+            ElmIconButton(iconData: isVertical ? Icons.arrow_upward : Icons.arrow_back, iconColor: appGenericState.themeColour, buttonWidth: 35, enabled: appGenericState.enabledButtons['shiftup'],
               onPressFunctions: () {
                 ElmModuleList.addModuleBelow(
                   moduleIndex: widget.moduleIndex - 2,
@@ -209,7 +226,7 @@ class elmSingleModuleWidget<T extends GenericProviderState> extends StatelessWid
               }
             ),
             //Shift Down
-            ElmIconButton(iconData: isVertical ? Icons.arrow_downward : Icons.arrow_forward, iconColor: appGenericState.themeColour, buttonWidth: 45,
+            ElmIconButton(iconData: isVertical ? Icons.arrow_downward : Icons.arrow_forward, iconColor: appGenericState.themeColour, buttonWidth: 35, enabled: appGenericState.enabledButtons['shiftdown'],
               onPressFunctions: () {
                 ElmModuleList.addModuleBelow(
                   moduleIndex: widget.moduleIndex + 1,
@@ -227,7 +244,7 @@ class elmSingleModuleWidget<T extends GenericProviderState> extends StatelessWid
               }
             ),
             //Copy
-            ElmIconButton(iconData: Icons.copy, iconColor: appGenericState.themeColour,
+            ElmIconButton(iconData: Icons.copy, iconColor: appGenericState.themeColour, enabled: appGenericState.enabledButtons['copy'],
               onPressFunctions: () {
                 ElmModuleList.addModuleBelow(
                   moduleIndex: widget.moduleIndex,
@@ -240,10 +257,10 @@ class elmSingleModuleWidget<T extends GenericProviderState> extends StatelessWid
               }
             ),
             //Delete
-            ElmIconButton(iconData: Icons.delete, iconColor: appGenericState.themeColour, 
+            ElmIconButton(iconData: Icons.delete, iconColor: appGenericState.themeColour, enabled: appGenericState.enabledButtons['delete'],
             onPressFunctions: (){
               //TO-DO: Option to disable warning
-              Get.defaultDialog(title: 'waves_deletewave_warning_title'.tr, middleText:  'waves_deletewave_warning_desc'.tr, textCancel: 'Cancel'.tr, textConfirm: 'generic_confirm'.tr, onConfirm: (){
+              Get.defaultDialog(title: 'util_deletewave_warning_title'.tr, middleText:  'util_deletewave_warning_desc'.tr, textCancel: 'Cancel'.tr, textConfirm: 'generic_confirm'.tr, onConfirm: (){
                 ElmModuleList.deleteModule(
                   moduleIndex: widget.moduleIndex,
                   appState: appGenericState,
@@ -257,7 +274,7 @@ class elmSingleModuleWidget<T extends GenericProviderState> extends StatelessWid
     
             }),
             //Add
-            ElmIconButton(iconData: Icons.add, iconColor: appGenericState.themeColour, 
+            ElmIconButton(iconData: Icons.add, iconColor: appGenericState.themeColour, enabled: appGenericState.enabledButtons['add'],
               onPressFunctions:(){
                 ElmModuleList.addModuleBelow(
                   moduleIndex: widget.moduleIndex,
@@ -269,27 +286,154 @@ class elmSingleModuleWidget<T extends GenericProviderState> extends StatelessWid
                 );
               }
             ),
+            //Extra Menu. Contains all disabled buttons.
+            ElmIconButton(iconData: Icons.more_horiz, iconColor: appGenericState.themeColour, enabled: appGenericState.enabledButtons['extra'],
+              onPressFunctions:(){
+                Get.defaultDialog(title: 'util_moreactions'.tr, middleTextStyle: TextStyle(fontSize: 0), textCancel: 'Cancel'.tr, 
+                  actions: [
+                    //Shift Up
+                    ElmIconButton(iconData: isVertical ? Icons.arrow_upward : Icons.arrow_back, iconColor: appGenericState.themeColour, buttonWidth: 50, buttonHeight: 30, enabled: false == appGenericState.enabledButtons['shiftup'],
+                      onPressFunctions: () {
+                        ElmModuleList.addModuleBelow(
+                          moduleIndex: widget.moduleIndex - 2,
+                          appState: appGenericState,
+                          newValue: widget.value,
+                        );
+                        ElmModuleList.deleteModule(
+                          moduleIndex: widget.moduleIndex + 1, 
+                          appState: appGenericState, 
+                          context: context,
+                        );
+                        ElmModuleList.updateAllModule(
+                          appState: appGenericState,
+                        );
+                        Get.back();
+                      }
+                    ),
+                    //Shift Down
+                    ElmIconButton(iconData: isVertical ? Icons.arrow_downward : Icons.arrow_forward, iconColor: appGenericState.themeColour, buttonWidth: 50, buttonHeight: 30, enabled: false == appGenericState.enabledButtons['shiftdown'],
+                      onPressFunctions: () {
+                        ElmModuleList.addModuleBelow(
+                          moduleIndex: widget.moduleIndex + 1,
+                          appState: appGenericState,
+                          newValue: widget.value,
+                        );
+                        ElmModuleList.deleteModule(
+                          moduleIndex: widget.moduleIndex, 
+                          appState: appGenericState, 
+                          context: context,
+                        );
+                        ElmModuleList.updateAllModule(
+                          appState: appGenericState,
+                        );
+                        Get.back();
+                      }
+                    ),
+                    //Copy
+                    ElmIconButton(iconData: Icons.copy, iconColor: appGenericState.themeColour, buttonWidth: 50, buttonHeight: 30, enabled: false == appGenericState.enabledButtons['copy'],
+                      onPressFunctions: () {
+                        ElmModuleList.addModuleBelow(
+                          moduleIndex: widget.moduleIndex,
+                          appState: appGenericState,
+                          newValue: widget.value,
+                        );
+                        ElmModuleList.updateAllModule(
+                          appState: appGenericState,
+                        );
+                        Get.back();
+                      }
+                    ),
+                    //Delete
+                    ElmIconButton(iconData: Icons.delete, iconColor: appGenericState.themeColour, buttonWidth: 50, buttonHeight: 30, enabled: false == appGenericState.enabledButtons['delete'],
+                    onPressFunctions: (){
+                      //TO-DO: Option to disable warning
+                      Get.defaultDialog(title: 'util_deletewave_warning_title'.tr, middleText:  'util_deletewave_warning_desc'.tr, textCancel: 'Cancel'.tr, textConfirm: 'generic_confirm'.tr, onConfirm: (){
+                        ElmModuleList.deleteModule(
+                          moduleIndex: widget.moduleIndex,
+                          appState: appGenericState,
+                          context: context
+                        );
+                        ElmModuleList.updateAllModule(
+                          appState: appGenericState,
+                        );
+                        Get.back();
+                        Get.back();
+                      });
+                    }),
+                    //Add
+                    ElmIconButton(iconData: Icons.add, iconColor: appGenericState.themeColour, buttonWidth: 50, buttonHeight: 30, enabled: false == appGenericState.enabledButtons['add'],
+                      onPressFunctions:(){
+                        ElmModuleList.addModuleBelow(
+                          moduleIndex: widget.moduleIndex,
+                          appState: appGenericState,
+                          newValue: null,
+                        );
+                        ElmModuleList.updateAllModule(
+                          appState: appGenericState,
+                        );
+                        Get.back();
+                      }
+                    ),
+                  ]
+                );
+              }
+            ),
           ],
         ),
         //SizedBox(height: 10),
         //Level Modules
-        Focus(
-          onFocusChange: (isFocused) {
-            appGenericState.updateModuleState();
-          },
-          child: TextField(
-            controller: widget.controllers,
-            onChanged: (value) {
-              // Update the value directly through the provider
-              ElmModuleList.updateModuleValueNoReload(
-                moduleIndex: widget.moduleIndex,
-                newValue: value,
-                appState: appGenericState,
-              );
-            },
-          ),
-        ),
+        ElmSingleModuleInputWidget(appGenericState: appGenericState, widget: widget),
       ],
+    );
+  }
+}
+
+class ElmSingleModuleInputWidget<T extends GenericProviderState> extends StatelessWidget {
+  const ElmSingleModuleInputWidget({
+    super.key,
+    required this.appGenericState,
+    required this.widget,
+  });
+
+  final T appGenericState;
+  final ElmModuleList<GenericProviderState> widget;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Color.fromARGB(17, 22, 123, 255), // Light blue background color
+        border: Border.all(
+          color: Color.fromARGB(63, 10, 53, 117)!, // Dark blue outline color
+          width: 2, // Outline thickness
+        ),
+        borderRadius: BorderRadius.all(
+          Radius.circular(7), // Rounded corners
+        ),
+      ),
+      padding: const EdgeInsets.all(5),
+      margin: const EdgeInsets.all(5),
+      height: 200,
+      child: Wrap(
+        children: [
+          Focus(
+            onFocusChange: (isFocused) {
+              appGenericState.updateModuleState();
+            },
+            child: TextField(
+              controller: widget.controllers,
+              onChanged: (value) {
+                // Update the value directly through the provider
+                ElmModuleList.updateModuleValueNoReload(
+                  moduleIndex: widget.moduleIndex,
+                  newValue: value,
+                  appState: appGenericState,
+                );
+              },
+            ),
+          ),
+        ]
+      ),
     );
   }
 }

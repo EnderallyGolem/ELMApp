@@ -1,0 +1,77 @@
+{
+    "NormalSpawn": {
+        "enabled": true,
+        "display_name": "Normal Spawn",
+        "inputs": {
+            "#Automatic Inputs": "Aliases, WaveNumber",
+            "AddPF": {"type": "number", "name":"Additional PF", "integer": true, "range": "0.."},
+            "L_ZombieList": {"type": "list", "name":"Zombies", 
+                "item": {"type": "codename_zombie", "name":"Zombie Typename"}, 
+                "axis_row": {"axistype": "setvalue", "values": {"1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "Random": null}},
+                "axis_col": {"axistype": "empty", "size": "5.."}
+            }
+        },
+        "level_modules": [],
+        "wave_modules": [{"Wave": "#WaveNumber", "RTID": "#Aliases"}],
+        "raw_code": [
+            {
+                "aliases": [
+                    "#Aliases"
+                ],
+                "objclass": "SpawnZombiesJitteredWaveActionProps",
+                "objdata": {
+                    "AdditionalPlantfood": "#AddPF",
+                    "Zombies": ["#L_ZombieList{Row: #axis_row, Type: #item}"]
+                }
+            }
+        ]
+    },
+    "CustomCode": {
+        "enabled": true,
+        "display_name": "Custom Code",
+        "inputs": {
+            "L_level_modules": {"type": "list", "name":"Level Modules", 
+                "item": {"type": "text", "name":"Module"}, 
+                "axis_row": {"axistype": "empty", "size": "2.."},
+                "axis_col": {"axistype": "empty", "size": "2"}
+            },
+            "L_wave_modules": {"type": "list", "name":"Wave Modules", 
+                "item": {"type": "text", "name":"Module"}, 
+                "axis_row": {"axistype": "specifyvalue", "values": 
+                    {"type": "number", "name":"Wave", "integer": true, "range": "1.."}
+                },
+                "axis_col": {"axistype": "empty", "size": "2"}
+            },
+            "L_raw_code": {"type": "list", "name":"Code", 
+                "item": {"type": "text", "name":"Code"}, 
+                "axis_row": {"axistype": "empty", "size": "1..", "defaultsize": 3},
+                "axis_col": {"axistype": "empty", "size": "1..", "defaultsize": 1}
+            }
+        },
+        "level_modules": ["#L_levelModules{Row: #axis_row, Type: #item}"],
+        "wave_modules": ["L_wave_modules{Wave: #axis_row, RTID: #item}"],
+        "raw_code": ["#L_raw_code"]
+    },
+    "test event": {
+        "enabled": true,
+        "display_name": "Test Event",
+        "inputs": {
+            "Aliases": {"type": "aliases", "name":"Aliases"},
+            "AddPF": {"type": "number", "name":"Additional PF", "integer": true, "range": "0.."}
+        },
+        "level_modules": ["#L_levelModules"],
+        "wave_modules": ["#L_waveModules"],
+        "raw_code": [
+            {
+                "aliases": [
+                    "#Aliases"
+                ],
+                "objclass": "SpawnZombiesJitteredWaveActionProps",
+                "objdata": {
+                    "AdditionalPlantfood": "#AddPF",
+                    "Zombies": "there is nothing here yet :("
+                }
+            }
+        ]
+    }
+}

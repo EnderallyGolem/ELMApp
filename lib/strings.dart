@@ -20,6 +20,11 @@ class ElmStrings extends Translations {
           'generic_error': 'Error',
           'generic_error_desc': 'Something went wrong! Uh oh!',
 
+          'util_moreactions': 'More actions',
+          'util_addwave': 'Add Module',
+          'util_deletewave_warning_title': 'Delete Module?',
+          'util_deletewave_warning_desc': 'Are you sure you want to delete this module?',
+
           'waves_wave': 'Wave',
           'waves_addwave': 'Add Wave',
           'waves_deletewave_warning_title': 'Delete Wave?',

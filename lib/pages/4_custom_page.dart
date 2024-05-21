@@ -7,8 +7,11 @@ import 'package:get/get.dart';
 
 class ProviderCustomState extends ChangeNotifier implements GenericProviderState {
 
-  @override Color themeColour = Color.fromARGB(255, 58, 104, 183); //Change this colour if needed
-  @override bool isVertical = false; //Change this to false if horizontal
+  //Change these first 4!
+  @override Color themeColour = Color.fromARGB(255, 58, 104, 183); //Colour used by UI
+  @override bool isVertical = false; //If modules extend vertically down or horizontally right
+  @override Map<String, bool> enabledButtons = //Change enabled buttons. extra contains all disabled buttons.
+    {'shiftup': false, 'shiftdown': false, 'copy': false, 'delete': true, 'add': true, 'extra': true}; //TO-DO: Button for copying event into another wave
 
   @override List<ElmModuleList> elmModuleListArr = [];
   @override GlobalKey<AnimatedListState> animatedModuleListKey = GlobalKey<AnimatedListState>();
