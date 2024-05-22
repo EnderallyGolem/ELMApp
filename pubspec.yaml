@@ -22,6 +22,8 @@ dependencies:
     sdk: flutter
   get: ^4.6.6
   double_back_to_close_app: ^2.1.0
+  auto_size_text: ^3.0.0
+  dropdown_button2: ^2.3.9
 
 dev_dependencies:
   flutter_test:

@@ -149,8 +149,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState(){
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      ProviderMainState.global['eventJson'] = await loadJson(path: 'assets/json/default/events.json');
-      debugPrint('is anything happening');
+      ProviderMainState.global['eventJson'] = await loadJson(path: 'assets/json/default/modules_events.json');
       debugPrint('${ProviderMainState.global['eventJson']['test event']['inputs']}');
     });
   }

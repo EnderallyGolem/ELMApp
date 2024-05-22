@@ -2,6 +2,7 @@
     "NormalSpawn": {
         "enabled": true,
         "display_name": "Normal Spawn",
+        "icon": "TO-DO-NOT-YET-IMPLEMTEND",
         "inputs": {
             "#Automatic Inputs": "Aliases, WaveNumber",
             "AddPF": {"type": "number", "name":"Additional PF", "integer": true, "range": "0.."},
@@ -29,6 +30,7 @@
     "CustomCode": {
         "enabled": true,
         "display_name": "Custom Code",
+        "icon": "TO-DO-NOT-YET-IMPLEMTEND",
         "inputs": {
             "L_level_modules": {"type": "list", "name":"Level Modules", 
                 "item": {"type": "text", "name":"Module"}, 
@@ -55,6 +57,7 @@
     "test event": {
         "enabled": true,
         "display_name": "Test Event",
+        "icon": "TO-DO-NOT-YET-IMPLEMTEND",
         "inputs": {
             "Aliases": {"type": "aliases", "name":"Aliases"},
             "AddPF": {"type": "number", "name":"Additional PF", "integer": true, "range": "0.."}

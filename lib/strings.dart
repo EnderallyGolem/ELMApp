@@ -24,6 +24,7 @@ class ElmStrings extends Translations {
           'util_addwave': 'Add Module',
           'util_deletewave_warning_title': 'Delete Module?',
           'util_deletewave_warning_desc': 'Are you sure you want to delete this module?',
+          'util_default_module_dropdown': 'Select Module',
 
           'waves_wave': 'Wave',
           'waves_addwave': 'Add Wave',

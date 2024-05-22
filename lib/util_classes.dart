@@ -5,6 +5,56 @@ import 'package:get/get.dart';
 import 'package:flutter/scheduler.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart'; 
+import 'package:auto_size_text/auto_size_text.dart';
+import 'package:dropdown_button2/dropdown_button2.dart';
+
+
+Future loadJson({required String path}) async {
+  String data = await rootBundle.loadString(path);
+  var jsonResult = json.decode(data);
+  debugPrint('Loaded json at $path: $jsonResult');
+  return jsonResult;
+}
+
+///
+/// Set value of a nested object/array/whatever.
+/// Changes the value if it already exists, otherwise adds a new value.
+/// 
+/// [obj] : The object. Probably appState.elmModuleListArr[moduleIndex].value
+/// 
+/// [path] : Array with each item being the path. Eg: ['moduleName', 'display'] or ['test', 0]
+/// 
+/// [value] : Dynamic value to be set at that path
+///
+void setNestedProperty({required dynamic obj, required List<dynamic> path, required dynamic value}) {
+  dynamic current = obj;
+  for (int i = 0; i < path.length; i++) {
+    var key = path[i];
+    if (i == path.length - 1) {
+      // If it's the last key in the path, set the value
+      if (current is Map<String, dynamic>) {
+        current[key] = value;
+      } else if (current is List<dynamic> && key is int) {
+        if (key >= 0 && key < current.length) {
+          current[key] = value;
+        } else {
+          current.insert(key, value);  // Optionally handle out-of-bounds index
+        }
+      } else {
+        throw Exception('Invalid path or object type');
+      }
+    } else {
+      // Traverse to the next key in the path
+      if (current is Map<String, dynamic> && current.containsKey(key)) {
+        current = current[key];
+      } else if (current is List<dynamic> && key is int && key >= 0 && key < current.length) {
+        current = current[key];
+      } else {
+        throw Exception('Invalid path or object type');
+      }
+    }
+  }
+}
 
 
 /// A small button that only consists of an icon and runs some functions.
@@ -60,12 +110,6 @@ class ElmIconButton extends StatelessWidget {
 }
 
 
-Future loadJson({required String path}) async {
-  String data = await rootBundle.loadString(path);
-  var jsonResult = json.decode(data);
-  debugPrint('Loaded json at $path: $jsonResult');
-  return jsonResult;
-}
 
 
 // ElmModuleList
@@ -93,12 +137,22 @@ abstract class GenericProviderState {
 class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
   final int moduleIndex;
   dynamic value;
-  TextEditingController? controllers;
-  String display = "";
 
-  ElmModuleList({required this.moduleIndex, this.value = '', this.controllers = null}) {
-    controllers ??= TextEditingController(text: value); //Sets a value if null
-    display = '${moduleIndex + 1}';
+  ElmModuleList({required this.moduleIndex, this.value = null}) {
+    //Sets a value if null
+    value ??= {
+      'moduleName': {
+        'display': '', //This is unused lol!
+        'internal': '',
+      },
+      'moduleDropdownList': {
+        'dropdownModuleDisplayName': 'util_default_module_dropdown'.tr,
+        'dropdownModuleInternalName': '',
+        'dropdownIconData': Icons.arrow_drop_down,
+      },
+    };
+    //Update values on rebuild
+    //value['moduleName']['display'] = 'test ${moduleIndex + 1}';
   }
 
   static Widget _buildAnimatedElmModuleList<T extends GenericProviderState>({required int moduleIndex, required Animation<double> animation, required T appState}) {
@@ -133,20 +187,17 @@ class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
     debugPrint('util_classes | addModuleBelow: Added value ${newValue} at index ${moduleIndex}');
   }
 
+  ///
+  /// Example for [path] : ['moduleName', 'display'] or ['test', 0]
+  ///
+  static void changeModuleValue<T extends GenericProviderState>({int moduleIndex = 0, required dynamic newValue, required dynamic path, required T appState}) {
+    setNestedProperty(obj: appState.elmModuleListArr[moduleIndex].value, path: path, value: newValue);
+    debugPrint('util_classes | changeModuleValue: Updated module for index ${moduleIndex}. New value: ${newValue}');
+  }
+
   static void updateAllModule<T extends GenericProviderState>({required T appState}) {
     appState.updateModuleState();
     debugPrint('util_classes | updateAllModule: Updated all modules');
-  }
-
-  static void updateModuleValue<T extends GenericProviderState>({int moduleIndex = 0, dynamic newValue, required T appState}) {
-    appState.elmModuleListArr[moduleIndex].value = newValue;
-    appState.updateModuleState();
-    debugPrint('util_classes | updateModuleValue: Updated module for index ${moduleIndex}. New value: ${newValue}');
-  }
-
-  static void updateModuleValueNoReload<T extends GenericProviderState>({int moduleIndex = 0, dynamic newValue, required T appState}) {
-    appState.elmModuleListArr[moduleIndex].value = newValue;
-    debugPrint('util_classes | updateModuleValueNoReload: Updated module for index ${moduleIndex}. New value: ${newValue}');
   }
 
   @override
@@ -187,6 +238,25 @@ class _ElmModuleListState<T extends GenericProviderState> extends State<ElmModul
   }
 }
 
+//TO-DO: Shift this out of util_classes and allow option to insert new events.json stuff here (+custom icons)
+final Map<String, Map<String, Object>> moduleDropdownListItems = {
+  "NormalSpawn": {
+    "display_name": "Normal Spawn",
+    "iconData": Icons.flag
+  },
+  "CustomCode": {
+    "display_name": "Custom Code",
+    "iconData": Icons.dashboard_customize
+  },
+  "test event": {
+    "display_name": "Test Event with an overly super duper ridiciously comically long name",
+    "iconData": Icons.abc
+  }
+};
+
+///
+/// Single Module - Upper Half
+///
 class ElmSingleModuleMainWidget<T extends GenericProviderState> extends StatelessWidget {
   const ElmSingleModuleMainWidget({
     super.key,
@@ -206,7 +276,111 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
       children: [
         Row(
           children: [
-            Expanded(child: Text(widget.display)),
+            //Module Name
+            //Expanded(child: Text(widget.value['moduleName']['display'])),
+            Expanded(
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton2<String>(
+                  isExpanded: true,
+                  hint: Row(
+                    children: [
+                      Icon(
+                        widget.value['moduleDropdownList']['dropdownIconData'],
+                        size: 14,
+                        color: appGenericState.themeColour,
+                      ),
+                      SizedBox(
+                        width: 4,
+                      ),
+                      Expanded(
+                        child: AutoSizeText(
+                          widget.value['moduleDropdownList']['dropdownModuleDisplayName'],
+                          maxFontSize: 14,
+                          minFontSize: 5,
+                          style: TextStyle(
+                            //fontSize: 14,
+                            color: appGenericState.themeColour,
+                          ),
+                          overflow: TextOverflow.fade,
+                        ),
+                      ),
+                    ],
+                  ),
+                  items: moduleDropdownListItems.entries.map<DropdownMenuItem<String>>((entry) {
+                  return DropdownMenuItem<String>(
+                    value: entry.key,
+                    child: FittedBox(
+                      child: Row(
+                        children: [
+                          Icon(entry.value['iconData'] as IconData, size: 12),
+                          SizedBox(width: 5),
+                          Text(
+                            entry.value['display_name'] as String,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.black,
+                            ),
+                            overflow: TextOverflow.fade,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                  }).toList(),
+                  //value: widget.value['moduleDropdownList']['dropdownModuleDisplayName'],
+                  onChanged: (value) {
+                    widget.value['moduleDropdownList']['dropdownModuleInternalName'] = value;
+                    if(moduleDropdownListItems[value] == null){
+                      widget.value['moduleDropdownList']['dropdownModuleDisplayName'] = value;
+                    } else {
+                      widget.value['moduleDropdownList']['dropdownModuleDisplayName'] = moduleDropdownListItems[value]!["display_name"];
+                      widget.value['moduleDropdownList']['dropdownIconData'] = moduleDropdownListItems[value]!["iconData"];
+                    }
+                    debugPrint('Set to ${widget.value['moduleDropdownList']['dropdownModuleInternalName']}');
+                    ElmModuleList.updateAllModule(appState: appGenericState);
+                  },
+                  buttonStyleData: ButtonStyleData(
+                    height: 50,
+                    width: 160,
+                    padding: const EdgeInsets.only(left: 14, right: 14),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: Colors.black26,
+                      ),
+                      color: const Color.fromARGB(255, 216, 216, 216),
+                    ),
+                    elevation: 2,
+                  ),
+                  iconStyleData: IconStyleData(
+                    icon: Icon(
+                      Icons.arrow_forward_ios_outlined,
+                    ),
+                    iconSize: 14,
+                    iconEnabledColor: appGenericState.themeColour,
+                    iconDisabledColor: appGenericState.themeColour,
+                  ),
+                  dropdownStyleData: DropdownStyleData(
+                    maxHeight: 200,
+                    width: 200,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      color: const Color.fromARGB(255, 216, 216, 216),
+                    ),
+                    offset: const Offset(-20, 0),
+                    scrollbarTheme: ScrollbarThemeData(
+                      radius: const Radius.circular(40),
+                      thickness: MaterialStateProperty.all(6),
+                      thumbVisibility: MaterialStateProperty.all(true),
+                    ),
+                  ),
+                  menuItemStyleData: const MenuItemStyleData(
+                    height: 40,
+                    padding: EdgeInsets.only(left: 14, right: 14),
+                  ),
+                ),
+              ),
+            ),
             //Shift Up
             ElmIconButton(iconData: isVertical ? Icons.arrow_upward : Icons.arrow_back, iconColor: appGenericState.themeColour, buttonWidth: 35, enabled: appGenericState.enabledButtons['shiftup'],
               onPressFunctions: () {
@@ -388,6 +562,9 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
   }
 }
 
+///
+/// Single Module - Lower Half
+///
 class ElmSingleModuleInputWidget<T extends GenericProviderState> extends StatelessWidget {
   const ElmSingleModuleInputWidget({
     super.key,
@@ -404,7 +581,7 @@ class ElmSingleModuleInputWidget<T extends GenericProviderState> extends Statele
       decoration: BoxDecoration(
         color: Color.fromARGB(17, 22, 123, 255), // Light blue background color
         border: Border.all(
-          color: Color.fromARGB(63, 10, 53, 117)!, // Dark blue outline color
+          color: Color.fromARGB(63, 10, 53, 117), // Dark blue outline color
           width: 2, // Outline thickness
         ),
         borderRadius: BorderRadius.all(
@@ -416,22 +593,7 @@ class ElmSingleModuleInputWidget<T extends GenericProviderState> extends Statele
       height: 200,
       child: Wrap(
         children: [
-          Focus(
-            onFocusChange: (isFocused) {
-              appGenericState.updateModuleState();
-            },
-            child: TextField(
-              controller: widget.controllers,
-              onChanged: (value) {
-                // Update the value directly through the provider
-                ElmModuleList.updateModuleValueNoReload(
-                  moduleIndex: widget.moduleIndex,
-                  newValue: value,
-                  appState: appGenericState,
-                );
-              },
-            ),
-          ),
+          //Stuff goes here
         ]
       ),
     );
@@ -488,7 +650,6 @@ class ElmModuleListWidget<T extends GenericProviderState> extends StatelessWidge
               child: ElmModuleList<T>(
                 moduleIndex: index,
                 value: appState.elmModuleListArr[index].value,
-                controllers: appState.elmModuleListArr[index].controllers,
               ),
             ),
           );
