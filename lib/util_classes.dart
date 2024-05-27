@@ -142,13 +142,12 @@ class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
     //Sets a value if null
     value ??= {
       'moduleName': {
-        'display': '', //This is unused lol!
         'internal': '',
       },
       'moduleDropdownList': {
         'dropdownModuleDisplayName': 'util_default_module_dropdown'.tr,
-        'dropdownModuleInternalName': '',
-        'dropdownIconData': Icons.arrow_drop_down,
+        'dropdownModuleInternalName': 'Empty',
+        'dropdownImage': Image.asset('assets/icon/moduleassets/misc_empty.png', height: 20, width: 20),
       },
     };
     //Update values on rebuild
@@ -223,6 +222,10 @@ class _ElmModuleListState<T extends GenericProviderState> extends State<ElmModul
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if(appGenericState.updateCode){
         appGenericState.updateModuleState(); //Update state the first time it is loaded. Such a dumb workaround...
+
+        //Update ProviderMainState.global["modulesEventJson"]
+        
+
         appGenericState.updateCode = false;
       }
     });
@@ -237,22 +240,6 @@ class _ElmModuleListState<T extends GenericProviderState> extends State<ElmModul
     }
   }
 }
-
-//TO-DO: Shift this out of util_classes and allow option to insert new events.json stuff here (+custom icons)
-final Map<String, Map<String, Object>> moduleDropdownListItems = {
-  "NormalSpawn": {
-    "display_name": "Normal Spawn",
-    "iconData": Icons.flag
-  },
-  "CustomCode": {
-    "display_name": "Custom Code",
-    "iconData": Icons.dashboard_customize
-  },
-  "test event": {
-    "display_name": "Test Event with an overly super duper ridiciously comically long name",
-    "iconData": Icons.abc
-  }
-};
 
 ///
 /// Single Module - Upper Half
@@ -269,36 +256,31 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
   final T appGenericState;
   final bool isVertical;
 
+
+
   @override
   Widget build(BuildContext context) {
+
     return Column(
       key: ValueKey(widget.value),
       children: [
         Row(
           children: [
-            //Module Name
-            //Expanded(child: Text(widget.value['moduleName']['display'])),
-            Expanded(
+            SizedBox(
+              width: 170,
               child: DropdownButtonHideUnderline(
                 child: DropdownButton2<String>(
                   isExpanded: true,
                   hint: Row(
                     children: [
-                      Icon(
-                        widget.value['moduleDropdownList']['dropdownIconData'],
-                        size: 14,
-                        color: appGenericState.themeColour,
-                      ),
-                      SizedBox(
-                        width: 4,
-                      ),
+                      widget.value['moduleDropdownList']['dropdownImage'],
+                      SizedBox(width: 4),
                       Expanded(
                         child: AutoSizeText(
                           widget.value['moduleDropdownList']['dropdownModuleDisplayName'],
                           maxFontSize: 14,
                           minFontSize: 5,
                           style: TextStyle(
-                            //fontSize: 14,
                             color: appGenericState.themeColour,
                           ),
                           overflow: TextOverflow.fade,
@@ -306,13 +288,13 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
                       ),
                     ],
                   ),
-                  items: moduleDropdownListItems.entries.map<DropdownMenuItem<String>>((entry) {
+                  items: ProviderMainState.global["modulesEventJsonEnabled"].entries.map<DropdownMenuItem<String>>((entry) {
                   return DropdownMenuItem<String>(
                     value: entry.key,
                     child: FittedBox(
                       child: Row(
                         children: [
-                          Icon(entry.value['iconData'] as IconData, size: 12),
+                          entry.value['Image'],
                           SizedBox(width: 5),
                           Text(
                             entry.value['display_name'] as String,
@@ -330,11 +312,11 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
                   //value: widget.value['moduleDropdownList']['dropdownModuleDisplayName'],
                   onChanged: (value) {
                     widget.value['moduleDropdownList']['dropdownModuleInternalName'] = value;
-                    if(moduleDropdownListItems[value] == null){
+                    if(ProviderMainState.global["modulesEventJson"][value] == null){
                       widget.value['moduleDropdownList']['dropdownModuleDisplayName'] = value;
                     } else {
-                      widget.value['moduleDropdownList']['dropdownModuleDisplayName'] = moduleDropdownListItems[value]!["display_name"];
-                      widget.value['moduleDropdownList']['dropdownIconData'] = moduleDropdownListItems[value]!["iconData"];
+                      widget.value['moduleDropdownList']['dropdownModuleDisplayName'] = ProviderMainState.global["modulesEventJson"][value]!["display_name"];
+                      widget.value['moduleDropdownList']['dropdownImage'] = ProviderMainState.global["modulesEventJson"][value]!["Image"];
                     }
                     debugPrint('Set to ${widget.value['moduleDropdownList']['dropdownModuleInternalName']}');
                     ElmModuleList.updateAllModule(appState: appGenericState);
@@ -577,24 +559,137 @@ class ElmSingleModuleInputWidget<T extends GenericProviderState> extends Statele
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Color.fromARGB(17, 22, 123, 255), // Light blue background color
-        border: Border.all(
-          color: Color.fromARGB(63, 10, 53, 117), // Dark blue outline color
-          width: 2, // Outline thickness
+    return ConstrainedBox(
+      constraints: BoxConstraints(minWidth: 300),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Color.fromARGB(17, 22, 123, 255), // Light blue background color
+          border: Border.all(
+            color: Color.fromARGB(63, 10, 53, 117), // Dark blue outline color
+            width: 2, // Outline thickness
+          ),
+          borderRadius: BorderRadius.all(
+            Radius.circular(7), // Rounded corners
+          ),
         ),
-        borderRadius: BorderRadius.all(
-          Radius.circular(7), // Rounded corners
-        ),
+        padding: const EdgeInsets.all(5),
+        margin: const EdgeInsets.all(5),
+        height: 200,
+        child: DynamicForm(config: ProviderMainState.global['modulesEventJson']['${widget.value['moduleDropdownList']['dropdownModuleInternalName']}']),
       ),
-      padding: const EdgeInsets.all(5),
-      margin: const EdgeInsets.all(5),
+    );
+  }
+}
+
+
+Widget createWidgetFromConfig(Map<String, dynamic> config) {
+  switch (config['type']) {
+    case 'number':
+      return NumberInputWidget(
+        name: config['name'],
+        integer: config['integer'],
+        range: config['range'],
+      );
+    case 'list':
+      return ListInputWidget(
+        name: config['name'],
+        itemConfig: config['item'],
+        rowConfig: config['axis_row'],
+        colConfig: config['axis_col'],
+      );
+    default:
+      return SizedBox.shrink();
+  }
+}
+
+class NumberInputWidget extends StatelessWidget {
+  final String name;
+  final bool integer;
+  final String range;
+
+  NumberInputWidget({
+    required this.name,
+    required this.integer,
+    required this.range,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(name),
+        TextField(
+          keyboardType: integer ? TextInputType.number : TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(
+            hintText: 'Enter a number ($range)',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class ListInputWidget extends StatelessWidget {
+  final String name;
+  final Map<String, dynamic> itemConfig;
+  final Map<String, dynamic> rowConfig;
+  final Map<String, dynamic> colConfig;
+
+  ListInputWidget({
+    required this.name,
+    required this.itemConfig,
+    required this.rowConfig,
+    required this.colConfig,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    List<String> rows = rowConfig['values'].keys.toList();
+    int colSize = int.tryParse(colConfig['size'].split('..').last) ?? 5;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(name),
+        Table(
+          children: [
+            TableRow(
+              children: List.generate(colSize, (index) {
+                return TextField(
+                  decoration: InputDecoration(
+                    hintText: itemConfig['name'],
+                  ),
+                );
+              }),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class DynamicForm extends StatelessWidget {
+  final Map<String, dynamic> config;
+
+  DynamicForm({required this.config});
+
+  @override
+  Widget build(BuildContext context) {
+    List<Widget> formWidgets = [Text('1\n2222222222222222222'),Text('3\n\n4444444444444444444444444444'),Text('5\n\n\n\n\n66666666666666666666')];
+    // config['inputs'].forEach((key, value) {
+    //   if (!key.startsWith('#')) {
+    //     formWidgets.add(createWidgetFromConfig(value));
+    //   }
+    // });
+
+    return SizedBox(
       height: 200,
       child: Wrap(
-        children: [
-          //Stuff goes here
-        ]
+        direction: Axis.vertical,
+        crossAxisAlignment: WrapCrossAlignment.start,
+        children: formWidgets,
       ),
     );
   }

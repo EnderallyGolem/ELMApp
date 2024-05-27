@@ -56,7 +56,8 @@ class ProviderMainState extends ChangeNotifier {
 
   //Values accessible anywhere!
   static dynamic global = {
-    'eventJson': '',
+    'modulesEventJson': {},
+    'modulesEventJsonEnabled': {},
     'waveCount': 0, //TO-DO: stuff for this. Create function to update when importing level, and when editing relevant pages.
   };
 
@@ -149,8 +150,19 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState(){
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      ProviderMainState.global['eventJson'] = await loadJson(path: 'assets/json/default/modules_events.json');
-      debugPrint('${ProviderMainState.global['eventJson']['test event']['inputs']}');
+      dynamic eventObj = await loadJson(path: 'assets/json/default/modules_events.json');
+
+      //Turn modules_events.json into map
+      eventObj.forEach((event, value) {
+        value["Image"] = Image.asset('assets/icon/moduleassets/${value["icon"]}.png', height: 20, width: 20,);
+      });
+      ProviderMainState.global['modulesEventJson'] = eventObj;
+
+      //Turn ENABLED parts of modules_events.json into map
+      final filteredMap = Map.fromEntries(
+        eventObj.entries.where((entry) => entry.value["enabled"] != false)
+      );
+      ProviderMainState.global['modulesEventJsonEnabled'] = filteredMap;
     });
   }
 
