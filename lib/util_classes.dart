@@ -9,7 +9,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart'; 
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
-
+import 'package:auto_size_text_field/auto_size_text_field.dart';
 
 
 Future loadJson({required String path}) async {
@@ -671,18 +671,20 @@ class AliasesInputWidget<T extends GenericProviderState> extends StatelessWidget
         Text('${name}:'),
         SizedBox(
           width: 150,
-          height: 24,
+          height: 25,
           child: Focus(
             onFocusChange: (isFocused) {
               ElmModuleList.updateAllModule(appState: appState);
             },
-            child: TextField(
-              onTapOutside: (event){
-                FocusManager.instance.primaryFocus?.unfocus();
-              },
+            child: AutoSizeTextField(
+              style: TextStyle(textBaseline: TextBaseline.alphabetic),
+              minFontSize: 5,
+              maxLines: 3,
+              maxLength: 100,
               key: Key(widget.value['internal_data']['default_aliases']),
               controller: widget.value['controller_data']['aliases'],
               onChanged: (inputValue) {
+                print(inputValue);
                 if(inputValue == ''){
                   widget.value['input_data']['aliases'] = widget.value['internal_data']['default_aliases'];
                 } else {
@@ -691,7 +693,8 @@ class AliasesInputWidget<T extends GenericProviderState> extends StatelessWidget
               },
               keyboardType: TextInputType.text,
               decoration: InputDecoration(
-                constraints: BoxConstraints(minWidth: 150, maxWidth: 150, maxHeight: 30),
+                counterText: '',
+                constraints: BoxConstraints(minWidth: 150, maxWidth: 150),
                 isDense: true,
                 isCollapsed: true,
                 hintText: widget.value['internal_data']['default_aliases'],

@@ -24,27 +24,36 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider<ProviderMainState>(create: (_) => ProviderMainState()),
-        ChangeNotifierProvider<ProviderWaveState>(create: (_) => ProviderWaveState()),
-    
-        ChangeNotifierProvider<ProviderCustomState>(create: (_) => ProviderCustomState()),
-    
-        ChangeNotifierProvider<ProviderMiscState>(create: (_) => ProviderMiscState())
-      ],
-      child: GetMaterialApp(
-        title: 'ELM App',
-        translations: ElmStrings(),
-        locale: Get.deviceLocale,
-        fallbackLocale: const Locale('en', null),
-        //Update locale: Get.updateLocale(Locale('en', 'US'))
-        //Possible TO-DO: Dark/light mode swap?
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Color.fromARGB(255, 58, 104, 183)),
-          useMaterial3: true,
+    return GestureDetector(
+      onTap: () {
+        FocusScopeNode currentFocus = FocusScope.of(context);
+        if (!currentFocus.hasPrimaryFocus) {
+          //currentFocus.unfocus();
+          FocusManager.instance.primaryFocus?.unfocus();
+        }
+      },
+      child: MultiProvider(
+        providers: [
+          ChangeNotifierProvider<ProviderMainState>(create: (_) => ProviderMainState()),
+          ChangeNotifierProvider<ProviderWaveState>(create: (_) => ProviderWaveState()),
+      
+          ChangeNotifierProvider<ProviderCustomState>(create: (_) => ProviderCustomState()),
+      
+          ChangeNotifierProvider<ProviderMiscState>(create: (_) => ProviderMiscState())
+        ],
+        child: GetMaterialApp(
+          title: 'ELM App',
+          translations: ElmStrings(),
+          locale: Get.deviceLocale,
+          fallbackLocale: const Locale('en', null),
+          //Update locale: Get.updateLocale(Locale('en', 'US'))
+          //Possible TO-DO: Dark/light mode swap?
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: Color.fromARGB(255, 58, 104, 183)),
+            useMaterial3: true,
+          ),
+          home: const MyHomePage(),
         ),
-        home: const MyHomePage(),
       ),
     );
   }
