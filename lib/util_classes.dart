@@ -1,4 +1,6 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
 import 'package:get/get.dart';
@@ -7,6 +9,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart'; 
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
+
 
 
 Future loadJson({required String path}) async {
@@ -22,7 +25,7 @@ Future loadJson({required String path}) async {
 /// 
 /// [obj] : The object. Probably appState.elmModuleListArr[moduleIndex].value
 /// 
-/// [path] : Array with each item being the path. Eg: ['moduleName', 'display'] or ['test', 0]
+/// [path] : Array with each item being the path. Eg: ['input_data', 'aliases'] or ['test', 0]
 /// 
 /// [value] : Dynamic value to be set at that path
 ///
@@ -137,21 +140,31 @@ abstract class GenericProviderState {
 class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
   final int moduleIndex;
   dynamic value;
+  Key? key;
 
-  ElmModuleList({required this.moduleIndex, this.value = null}) {
+  ElmModuleList({required this.moduleIndex, this.value = null, this.key = null}) {
     //Sets a value if null
+    key ??= UniqueKey();
     value ??= {
-      'moduleName': {
-        'internal': '',
+      'module_dropdown_list': {
+        'dropdown_module_display_name': 'util_default_module_dropdown'.tr,
+        'dropdown_module_internal_name': 'Empty',
+        'dropdown_image': Image.asset('assets/icon/moduleassets/misc_empty.png', height: 20, width: 20),
       },
-      'moduleDropdownList': {
-        'dropdownModuleDisplayName': 'util_default_module_dropdown'.tr,
-        'dropdownModuleInternalName': 'Empty',
-        'dropdownImage': Image.asset('assets/icon/moduleassets/misc_empty.png', height: 20, width: 20),
+      'internal_data': {
+        'default_aliases': ''
       },
+      'controller_data': {
+        'aliases': TextEditingController(text: ''),
+      },
+      'input_data': {
+        'event_number': moduleIndex + 1,
+        'aliases': ''
+      }
     };
     //Update values on rebuild
-    //value['moduleName']['display'] = 'test ${moduleIndex + 1}';
+    value['input_data']['event_number'] = moduleIndex + 1;
+    value['internal_data']['default_aliases'] = '${value['module_dropdown_list']['dropdown_module_internal_name']}_${value['input_data']['event_number']}';
   }
 
   static Widget _buildAnimatedElmModuleList<T extends GenericProviderState>({required int moduleIndex, required Animation<double> animation, required T appState}) {
@@ -231,13 +244,7 @@ class _ElmModuleListState<T extends GenericProviderState> extends State<ElmModul
     });
 
     bool isVertical = appGenericState.isVertical;
-    if(isVertical){
-      return ElmSingleModuleMainWidget(widget: widget, appGenericState: appGenericState, isVertical: isVertical);
-    } else {
-      return IntrinsicWidth(
-        child: ElmSingleModuleMainWidget(widget: widget, appGenericState: appGenericState, isVertical: isVertical),
-      );
-    }
+    return ElmSingleModuleMainWidget(widget: widget, appGenericState: appGenericState, isVertical: isVertical);
   }
 }
 
@@ -252,7 +259,7 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
     required this.isVertical,
   });
 
-  final ElmModuleList widget;
+  final ElmModuleList<T> widget;
   final T appGenericState;
   final bool isVertical;
 
@@ -273,11 +280,11 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
                   isExpanded: true,
                   hint: Row(
                     children: [
-                      widget.value['moduleDropdownList']['dropdownImage'],
+                      widget.value['module_dropdown_list']['dropdown_image'],
                       SizedBox(width: 4),
                       Expanded(
                         child: AutoSizeText(
-                          widget.value['moduleDropdownList']['dropdownModuleDisplayName'],
+                          widget.value['module_dropdown_list']['dropdown_module_display_name'],
                           maxFontSize: 14,
                           minFontSize: 5,
                           style: TextStyle(
@@ -309,16 +316,16 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
                     ),
                   );
                   }).toList(),
-                  //value: widget.value['moduleDropdownList']['dropdownModuleDisplayName'],
+                  //value: widget.value['module_dropdown_list']['dropdown_module_display_name'],
                   onChanged: (value) {
-                    widget.value['moduleDropdownList']['dropdownModuleInternalName'] = value;
+                    widget.value['module_dropdown_list']['dropdown_module_internal_name'] = value;
                     if(ProviderMainState.global["modulesEventJson"][value] == null){
-                      widget.value['moduleDropdownList']['dropdownModuleDisplayName'] = value;
+                      widget.value['module_dropdown_list']['dropdown_module_display_name'] = value;
                     } else {
-                      widget.value['moduleDropdownList']['dropdownModuleDisplayName'] = ProviderMainState.global["modulesEventJson"][value]!["display_name"];
-                      widget.value['moduleDropdownList']['dropdownImage'] = ProviderMainState.global["modulesEventJson"][value]!["Image"];
+                      widget.value['module_dropdown_list']['dropdown_module_display_name'] = ProviderMainState.global["modulesEventJson"][value]!["display_name"];
+                      widget.value['module_dropdown_list']['dropdown_image'] = ProviderMainState.global["modulesEventJson"][value]!["Image"];
                     }
-                    debugPrint('Set to ${widget.value['moduleDropdownList']['dropdownModuleInternalName']}');
+                    debugPrint('Set to ${widget.value['module_dropdown_list']['dropdown_module_internal_name']}');
                     ElmModuleList.updateAllModule(appState: appGenericState);
                   },
                   buttonStyleData: ButtonStyleData(
@@ -555,12 +562,12 @@ class ElmSingleModuleInputWidget<T extends GenericProviderState> extends Statele
   });
 
   final T appGenericState;
-  final ElmModuleList<GenericProviderState> widget;
+  final ElmModuleList<T> widget;
 
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: BoxConstraints(minWidth: 300),
+      constraints: BoxConstraints(minWidth: 300, maxHeight: 200),
       child: Container(
         decoration: BoxDecoration(
           color: Color.fromARGB(17, 22, 123, 255), // Light blue background color
@@ -575,39 +582,138 @@ class ElmSingleModuleInputWidget<T extends GenericProviderState> extends Statele
         padding: const EdgeInsets.all(5),
         margin: const EdgeInsets.all(5),
         height: 200,
-        child: DynamicForm(config: ProviderMainState.global['modulesEventJson']['${widget.value['moduleDropdownList']['dropdownModuleInternalName']}']),
+        child: ElmDynamicModuleForm(appState: appGenericState, widget: widget, config: ProviderMainState.global['modulesEventJson']['${widget.value['module_dropdown_list']['dropdown_module_internal_name']}']),
       ),
     );
   }
 }
 
+class ElmDynamicModuleForm<T extends GenericProviderState> extends StatelessWidget {
+  final Map<String, dynamic> config;
+  final ElmModuleList<T> widget;
+  final T appState;
 
-Widget createWidgetFromConfig(Map<String, dynamic> config) {
+  ElmDynamicModuleForm({required this.config, required this.widget, required this.appState});
+
+  @override
+  Widget build(BuildContext context) {
+    List<Widget> formWidgets = [];
+    config['inputs'].forEach((key, value) {
+      if (!key.startsWith('#')) {
+        formWidgets.add(createWidgetFromConfig(config: value, widget: widget, appState: appState));
+      }
+    });
+
+    return Wrap(
+      direction: Axis.vertical,
+      crossAxisAlignment: WrapCrossAlignment.start,
+      children: formWidgets,
+    );
+  }
+}
+
+Widget createWidgetFromConfig({required Map<String, dynamic> config, required ElmModuleList widget, required GenericProviderState appState}) {
+  debugPrint('Creating widget with data: $config');
   switch (config['type']) {
+    case 'aliases':
+      debugPrint('Type is Aliases');
+      return AliasesInputWidget(
+        appState: appState,
+        widget: widget,
+        name: config['name'],
+      );
     case 'number':
+      debugPrint('Type is Number');
       return NumberInputWidget(
+        appState: appState,
+        widget: widget,
         name: config['name'],
         integer: config['integer'],
         range: config['range'],
       );
     case 'list':
+      debugPrint('Type is List');
       return ListInputWidget(
+        appState: appState,
+        widget: widget,
         name: config['name'],
         itemConfig: config['item'],
         rowConfig: config['axis_row'],
         colConfig: config['axis_col'],
       );
     default:
+      debugPrint('Type is unknown');
       return SizedBox.shrink();
   }
 }
 
-class NumberInputWidget extends StatelessWidget {
+class AliasesInputWidget<T extends GenericProviderState> extends StatelessWidget {
+  final T appState;
+  final ElmModuleList<T> widget;
+  final String name;
+
+  AliasesInputWidget({
+    required this.appState,
+    required this.widget,
+    this.name = "Aliases",
+  });
+  
+  layout(){
+
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('${name}:'),
+        SizedBox(
+          width: 150,
+          height: 24,
+          child: Focus(
+            onFocusChange: (isFocused) {
+              ElmModuleList.updateAllModule(appState: appState);
+            },
+            child: TextField(
+              onTapOutside: (event){
+                FocusManager.instance.primaryFocus?.unfocus();
+              },
+              key: Key(widget.value['internal_data']['default_aliases']),
+              controller: widget.value['controller_data']['aliases'],
+              onChanged: (inputValue) {
+                if(inputValue == ''){
+                  widget.value['input_data']['aliases'] = widget.value['internal_data']['default_aliases'];
+                } else {
+                  widget.value['input_data']['aliases'] = inputValue;
+                }
+              },
+              keyboardType: TextInputType.text,
+              decoration: InputDecoration(
+                constraints: BoxConstraints(minWidth: 150, maxWidth: 150, maxHeight: 30),
+                isDense: true,
+                isCollapsed: true,
+                hintText: widget.value['internal_data']['default_aliases'],
+              ),
+            ),
+          ),
+        )
+      ],
+    );
+  }
+}
+
+class NumberInputWidget<T extends GenericProviderState> extends StatelessWidget {
+  final T appState;
+  final ElmModuleList<T> widget;
   final String name;
   final bool integer;
   final String range;
 
   NumberInputWidget({
+    required this.appState,
+    required this.widget,
     required this.name,
     required this.integer,
     required this.range,
@@ -630,13 +736,17 @@ class NumberInputWidget extends StatelessWidget {
   }
 }
 
-class ListInputWidget extends StatelessWidget {
+class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
+  final T appState;
+  final ElmModuleList<T> widget;
   final String name;
   final Map<String, dynamic> itemConfig;
   final Map<String, dynamic> rowConfig;
   final Map<String, dynamic> colConfig;
 
   ListInputWidget({
+    required this.appState,
+    required this.widget,
     required this.name,
     required this.itemConfig,
     required this.rowConfig,
@@ -666,31 +776,6 @@ class ListInputWidget extends StatelessWidget {
           ],
         ),
       ],
-    );
-  }
-}
-
-class DynamicForm extends StatelessWidget {
-  final Map<String, dynamic> config;
-
-  DynamicForm({required this.config});
-
-  @override
-  Widget build(BuildContext context) {
-    List<Widget> formWidgets = [Text('1\n2222222222222222222'),Text('3\n\n4444444444444444444444444444'),Text('5\n\n\n\n\n66666666666666666666')];
-    // config['inputs'].forEach((key, value) {
-    //   if (!key.startsWith('#')) {
-    //     formWidgets.add(createWidgetFromConfig(value));
-    //   }
-    // });
-
-    return SizedBox(
-      height: 200,
-      child: Wrap(
-        direction: Axis.vertical,
-        crossAxisAlignment: WrapCrossAlignment.start,
-        children: formWidgets,
-      ),
     );
   }
 }
@@ -743,6 +828,7 @@ class ElmModuleListWidget<T extends GenericProviderState> extends StatelessWidge
               axis: appState.isVertical ? Axis.vertical : Axis.horizontal,
               axisAlignment: 0,
               child: ElmModuleList<T>(
+                key: appState.elmModuleListArr[index].key,
                 moduleIndex: index,
                 value: appState.elmModuleListArr[index].value,
               ),

@@ -28,9 +28,9 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider<ProviderMainState>(create: (_) => ProviderMainState()),
         ChangeNotifierProvider<ProviderWaveState>(create: (_) => ProviderWaveState()),
-
+    
         ChangeNotifierProvider<ProviderCustomState>(create: (_) => ProviderCustomState()),
-
+    
         ChangeNotifierProvider<ProviderMiscState>(create: (_) => ProviderMiscState())
       ],
       child: GetMaterialApp(

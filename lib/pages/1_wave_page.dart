@@ -53,14 +53,17 @@ class ProviderWaveState extends ChangeNotifier {
 ///
 
 class WaveModule extends StatefulWidget {
+  Key? key;
   final int waveIndex;
   dynamic value;
   TextEditingController? controllers;
   String display = "";
 
-  WaveModule({required this.waveIndex, this.value = '', this.controllers = null}) {
+  WaveModule({required this.waveIndex, this.value = '', this.controllers = null, this.key = null}) {
     controllers ??= TextEditingController(text: value); //Sets a value if null
+    key ??= UniqueKey();
     display = '${'waves_wave'.tr} ${waveIndex + 1}';
+    debugPrint('rebuilt ${waveIndex} ${key}');
   }
 
   static Widget _buildAnimatedWaveModule(int waveIndex, Animation<double> animation) {
@@ -135,7 +138,7 @@ class _WaveModuleState extends State<WaveModule> {
     var appWaveState = context.watch<ProviderWaveState>();
 
     return Column(
-      key: ValueKey(widget.value),
+      //key: ValueKey(widget.value),
       children: [
         Row(
           children: [
@@ -208,7 +211,6 @@ class _WaveModuleState extends State<WaveModule> {
                 );
                 Get.back();
               });
-
             }),
             //Add
             ElmIconButton(iconData: Icons.add, iconColor: ProviderWaveState.wavesColour, 
@@ -233,6 +235,9 @@ class _WaveModuleState extends State<WaveModule> {
             appWaveState.updateWaveState();
           },
           child: TextField(
+            onTapOutside: (event){
+              FocusManager.instance.primaryFocus?.unfocus();
+            },
             controller: widget.controllers,
             onChanged: (value) {
               // Update the value directly through the provider
@@ -304,6 +309,7 @@ class _Page_WaveState extends State<Page_Wave> {
               axis: Axis.vertical,
               axisAlignment: 0,
               child: WaveModule(
+                key: ProviderWaveState.waveModuleArr[index].key,
                 waveIndex: index,
                 value: ProviderWaveState.waveModuleArr[index].value,
                 controllers: ProviderWaveState.waveModuleArr[index].controllers,
