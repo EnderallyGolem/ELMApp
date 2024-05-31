@@ -2,7 +2,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
-import '../main.dart';
 import 'package:get/get.dart';
 import 'package:flutter/scheduler.dart';
 import 'dart:convert';
@@ -11,54 +10,8 @@ import 'package:auto_size_text/auto_size_text.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:auto_size_text_field/auto_size_text_field.dart';
 
-
-Future loadJson({required String path}) async {
-  String data = await rootBundle.loadString(path);
-  var jsonResult = json.decode(data);
-  debugPrint('Loaded json at $path: $jsonResult');
-  return jsonResult;
-}
-
-///
-/// Set value of a nested object/array/whatever.
-/// Changes the value if it already exists, otherwise adds a new value.
-/// 
-/// [obj] : The object. Probably appState.elmModuleListArr[moduleIndex].value
-/// 
-/// [path] : Array with each item being the path. Eg: ['variables', 'aliases'] or ['test', 0]
-/// 
-/// [value] : Dynamic value to be set at that path
-///
-void setNestedProperty({required dynamic obj, required List<dynamic> path, required dynamic value}) {
-  dynamic current = obj;
-  for (int i = 0; i < path.length; i++) {
-    var key = path[i];
-    if (i == path.length - 1) {
-      // If it's the last key in the path, set the value
-      if (current is Map<String, dynamic>) {
-        current[key] = value;
-      } else if (current is List<dynamic> && key is int) {
-        if (key >= 0 && key < current.length) {
-          current[key] = value;
-        } else {
-          current.insert(key, value);  // Optionally handle out-of-bounds index
-        }
-      } else {
-        throw Exception('Invalid path or object type');
-      }
-    } else {
-      // Traverse to the next key in the path
-      if (current is Map<String, dynamic> && current.containsKey(key)) {
-        current = current[key];
-      } else if (current is List<dynamic> && key is int && key >= 0 && key < current.length) {
-        current = current[key];
-      } else {
-        throw Exception('Invalid path or object type');
-      }
-    }
-  }
-}
-
+import 'main.dart';
+import 'util_functions.dart';
 
 /// A small button that only consists of an icon and runs some functions.
 /// 
@@ -148,12 +101,15 @@ class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
     key ??= UniqueKey();
     value ??= {
       'module_dropdown_list': {
-        'dropdown_module_display_name': 'util_default_module_dropdown'.tr,
+        'dropdown_module_display_text': 'util_default_module_dropdown'.tr,
         'dropdown_module_internal_name': 'Empty',
         'dropdown_image': Image.asset('assets/icon/moduleassets/misc_empty.png', height: 20, width: 20),
       },
-      'internal_data': {}, //Stored what you type. What you type is not necessarily variables (empty => variable is default value instead of internal data)
+      'internal_data': {
+        'firstUpdate': true,
+      }, //Stored what you type. What you type is not necessarily variables (empty => variable is default value instead of internal data)
       'variables': {
+        'select_module_message': 'util_default_module_message'.tr,
         'default_aliases': '',
         'event_number': moduleIndex + 1,
       }
@@ -266,6 +222,7 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
   Widget build(BuildContext context) {
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
@@ -280,7 +237,7 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
                       SizedBox(width: 4),
                       Expanded(
                         child: AutoSizeText(
-                          widget.value['module_dropdown_list']['dropdown_module_display_name'],
+                          widget.value['module_dropdown_list']['dropdown_module_display_text'],
                           maxFontSize: 14,
                           minFontSize: 5,
                           style: TextStyle(
@@ -300,7 +257,7 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
                           entry.value['Image'],
                           SizedBox(width: 5),
                           Text(
-                            entry.value['display_name'] as String,
+                            entry.value['display_text'] as String,
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.black,
@@ -312,17 +269,18 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
                     ),
                   );
                   }).toList(),
-                  //value: widget.value['module_dropdown_list']['dropdown_module_display_name'],
+                  //value: widget.value['module_dropdown_list']['dropdown_module_display_text'],
                   onChanged: (value) {
                     widget.value['module_dropdown_list']['dropdown_module_internal_name'] = value;
                     if(ProviderMainState.global["modulesEventJson"][value] == null){
-                      widget.value['module_dropdown_list']['dropdown_module_display_name'] = value;
+                      widget.value['module_dropdown_list']['dropdown_module_display_text'] = value;
                     } else {
-                      widget.value['module_dropdown_list']['dropdown_module_display_name'] = ProviderMainState.global["modulesEventJson"][value]!["display_name"];
+                      widget.value['module_dropdown_list']['dropdown_module_display_text'] = ProviderMainState.global["modulesEventJson"][value]!["display_text"];
                       widget.value['module_dropdown_list']['dropdown_image'] = ProviderMainState.global["modulesEventJson"][value]!["Image"];
                     }
                     debugPrint('Set to ${widget.value['module_dropdown_list']['dropdown_module_internal_name']}');
                     ElmModuleList.updateAllModule(appState: appGenericState);
+                    widget.value['internal_data']['firstUpdate'] = true;
                   },
                   buttonStyleData: ButtonStyleData(
                     height: 50,
@@ -355,8 +313,8 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
                     offset: const Offset(-20, 0),
                     scrollbarTheme: ScrollbarThemeData(
                       radius: const Radius.circular(40),
-                      thickness: MaterialStateProperty.all(6),
-                      thumbVisibility: MaterialStateProperty.all(true),
+                      thickness: WidgetStateProperty.all(6),
+                      thumbVisibility: WidgetStateProperty.all(true),
                     ),
                   ),
                   menuItemStyleData: const MenuItemStyleData(
@@ -430,7 +388,7 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
                 );
                 Get.back();
               });
-    
+            
             }),
             //Add
             ElmIconButton(iconData: Icons.add, iconColor: appGenericState.themeColour, enabled: appGenericState.enabledButtons['add'],
@@ -594,11 +552,18 @@ class ElmDynamicModuleForm<T extends GenericProviderState> extends StatelessWidg
   @override
   Widget build(BuildContext context) {
     List<Widget> formWidgets = [];
-    config['inputs'].forEach((internal_name, value) {
-      if (!internal_name.startsWith('#')) {
-        formWidgets.add(createWidgetFromConfig(internal_name: internal_name, config: value, widget: widget, appState: appState));
-      }
-    });
+    const int loopMaxNum = 30;
+
+    //Create widgets for each input
+    updateWidgetAndVariableInfo(formWidgets: formWidgets, loopMaxNum: loopMaxNum);
+
+    //If module is just changed, it isn't updated properly. Update it once more!
+    if(widget.value['internal_data']['firstUpdate']){
+      widget.value['internal_data']['firstUpdate'] = false;
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        ElmModuleList.updateAllModule(appState: appState);
+      });
+    }
 
     return Wrap(
       spacing: 5,
@@ -608,24 +573,137 @@ class ElmDynamicModuleForm<T extends GenericProviderState> extends StatelessWidg
       children: formWidgets,
     );
   }
+
+  void updateWidgetAndVariableInfo({required List<Widget> formWidgets, int loopMaxNum = 1}) {
+    dynamic beforeData = deepCopy(widget.value);
+    debugPrint('loopMaxNum = ${loopMaxNum}');
+    
+    //Run code for each variable
+    config['variables'] ??= {};
+    config['variables'].forEach((internal_name, value) {
+      if (!internal_name.startsWith('#')) {
+        updateVariablesFromConfig(internal_name: internal_name, config: value, widget: widget, appState: appState);
+      }
+    });
+
+    dynamic afterData = widget.value;
+
+    //Check if should repeat!
+    if(deepEquals(beforeData, afterData) == false && loopMaxNum > 0){
+      loopMaxNum--;
+      updateWidgetAndVariableInfo(formWidgets: formWidgets, loopMaxNum: loopMaxNum);
+      return;
+    }
+
+    //Create widgets for each input
+    config['inputs'] ??= {};
+    config['inputs'].forEach((internal_name, value) {
+      if (!internal_name.startsWith('#')) {
+        formWidgets.add(createWidgetFromConfig(internal_name: internal_name, config: value, widget: widget, appState: appState));
+      }
+    });
+  }
+}
+
+void updateVariablesFromConfig({required String internal_name, required Map<String, dynamic> config, required ElmModuleList widget, required GenericProviderState appState}){
+  debugPrint('Creating variable with data: $config');
+  switch (config['type']) {
+    case 'text_concatenate':
+      variableTextConcatenate(
+        internal_name: internal_name, 
+        config: config, 
+        widget: widget, 
+        appState: appState,
+        text_array: config['text_array'],
+        text_seperator: config['text_seperator'],
+      );
+      break;
+    case 'number_offset':
+      //
+      break;
+    case 'checkbox_chooser':
+      //
+      break;
+    default:
+      debugPrint('Type is unknown');
+      break;
+  }
+}
+
+///
+/// Checks if [input] starts with a !, and if it does, returns the variable's value.
+/// Otherwise, returns itself.
+/// 
+/// If [input] is null, return empty string
+///
+dynamic variableCheckString({required String? input, required ElmModuleList widget, required String internal_name}){
+  input ??= "";
+  dynamic returnValue;
+  if(input.startsWith('!')){
+    returnValue = widget.value['variables'][input.substring(1)];
+  } else {
+    returnValue = input;
+  }
+  returnValue ??= "";
+  return returnValue;
+}
+
+///
+/// variableCheckString except it checks all values in a nested list/map.
+/// 
+/// If [input] is null, return empty string
+///
+dynamic variableCheckDynamic({required dynamic input, required ElmModuleList widget, required String internal_name}){
+  input ??= '';
+  dynamic inputClone = deepCopy(input);
+  iterateAndModifyNested(
+    nestedItem: inputClone,
+    function: (key, value) {
+      return variableCheckString(input: value, widget: widget, internal_name: internal_name);
+    }
+  );
+  inputClone ??= "";
+  return inputClone;
+}
+
+void variableTextConcatenate({
+  required String internal_name, 
+  required Map<String, dynamic> config, 
+  required ElmModuleList widget, 
+  required GenericProviderState appState,
+  required List? text_array,
+  required String? text_seperator,
+}){
+  text_array = variableCheckDynamic(input: text_array, widget: widget, internal_name: internal_name);
+  text_seperator = variableCheckString(input: text_seperator, widget: widget, internal_name: internal_name);
+
+  widget.value['variables'][internal_name] = text_array!.join(text_seperator!);
+  debugPrint('${internal_name}: ${widget.value['variables'][internal_name]}');
 }
 
 Widget createWidgetFromConfig({required String internal_name, required Map<String, dynamic> config, required ElmModuleList widget, required GenericProviderState appState}) {
   debugPrint('Creating widget with data: $config');
   switch (config['type']) {
+    case 'none':
+      return NoInputWidget(
+        appState: appState,
+        widget: widget,
+        internal_name: internal_name,
+        display_text: config['display_text'],
+      );
     case 'aliases':
       return AliasesInputWidget(
         appState: appState,
         widget: widget,
         internal_name: internal_name,
-        display_name: config['display_name'],
+        display_text: config['display_text'],
       );
     case 'text':
       return TextInputWidget(
         appState: appState,
         widget: widget,
         internal_name: internal_name,
-        display_name: config['display_name'],
+        display_text: config['display_text'],
         default_text: config['default_text'],
       );
     case 'number':
@@ -633,7 +711,7 @@ Widget createWidgetFromConfig({required String internal_name, required Map<Strin
         appState: appState,
         widget: widget,
         internal_name: internal_name,
-        display_name: config['display_name'],
+        display_text: config['display_text'],
         integer: config['integer'],
         range: config['range'],
       );
@@ -642,7 +720,7 @@ Widget createWidgetFromConfig({required String internal_name, required Map<Strin
         appState: appState,
         widget: widget,
         internal_name: internal_name,
-        display_name: config['display_name'],
+        display_text: config['display_text'],
         itemConfig: config['item'],
         rowConfig: config['axis_row'],
         colConfig: config['axis_col'],
@@ -653,29 +731,52 @@ Widget createWidgetFromConfig({required String internal_name, required Map<Strin
   }
 }
 
+class NoInputWidget<T extends GenericProviderState> extends StatelessWidget {
+  final T appState;
+  final ElmModuleList<T> widget;
+  final String internal_name;
+  String? display_text;
+
+  NoInputWidget({
+    required this.appState,
+    required this.widget,
+    required this.internal_name,
+    required this.display_text,
+  }){
+    display_text = variableCheckString(input: display_text!, widget: widget, internal_name: internal_name);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text('${display_text}');
+  }
+}
+
 class AliasesInputWidget<T extends GenericProviderState> extends StatelessWidget {
   final T appState;
   final ElmModuleList<T> widget;
   final String internal_name;
-  String? display_name;
+  String? display_text;
 
   AliasesInputWidget({
     required this.appState,
     required this.widget,
     required this.internal_name,
-    required this.display_name,
+    required this.display_text,
   }){
-    display_name ??= "Aliases";
+    display_text ??= "Aliases";
+    display_text = variableCheckString(input: display_text, widget: widget, internal_name: internal_name);
   }
 
   @override
   Widget build(BuildContext context) {
     widget.uniqueValue['controller_data'][internal_name] ??= widget.value['internal_data'][internal_name] == null ? TextEditingController(text: '') : TextEditingController(text: widget.value['internal_data'][internal_name]);
+    widget.value['variables'][internal_name] ??= widget.value['variables']['default_aliases'];
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('${display_name}:'),
+        Text(display_text!),
         SizedBox(
           width: 150,
           height: 25,
@@ -694,7 +795,7 @@ class AliasesInputWidget<T extends GenericProviderState> extends StatelessWidget
               onChanged: (inputValue) {
                 widget.value['internal_data'][internal_name] = inputValue;
                 if(inputValue == ''){
-                  widget.value['variables'][internal_name] = widget.value['variables'][internal_name];
+                  widget.value['variables'][internal_name] = widget.value['variables']['default_aliases'];
                 } else {
                   widget.value['variables'][internal_name] = inputValue;
                 }
@@ -721,28 +822,29 @@ class TextInputWidget<T extends GenericProviderState> extends StatelessWidget {
   final T appState;
   final ElmModuleList<T> widget;
   final String internal_name;
-  String? display_name;
+  String? display_text;
   String? default_text;
 
   TextInputWidget({
     required this.appState,
     required this.widget,
     required this.internal_name,
-    required this.display_name,
+    required this.display_text,
     required this.default_text,
   }){
-    display_name ??= "";
-    default_text ??= "";
+    display_text = variableCheckString(input: display_text, widget: widget, internal_name: internal_name);
+    default_text = variableCheckString(input: default_text, widget: widget, internal_name: internal_name);
   }
 
   @override
   Widget build(BuildContext context) {
     widget.uniqueValue['controller_data'][internal_name] ??= widget.value['internal_data'][internal_name] == null ? TextEditingController(text: '') : TextEditingController(text: widget.value['internal_data'][internal_name]);
+    widget.value['variables'][internal_name] ??= default_text;
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('${display_name}:'),
+        Text(display_text!),
         SizedBox(
           //Width, height, minFontSize, maxLine and maxlength carefully chosen to prevent freeze
           width: 150,
@@ -789,7 +891,7 @@ class NumberInputWidget<T extends GenericProviderState> extends StatelessWidget 
   final T appState;
   final ElmModuleList<T> widget;
   final String internal_name;
-  String? display_name;
+  String? display_text;
   bool? integer;
   String? range;
 
@@ -797,11 +899,11 @@ class NumberInputWidget<T extends GenericProviderState> extends StatelessWidget 
     required this.appState,
     required this.widget,
     required this.internal_name,
-    required this.display_name,
+    required this.display_text,
     required this.integer,
     required this.range,
   }){
-    display_name ??= "";
+    display_text ??= "";
     integer ??= false;
     range ??= "";
   }
@@ -811,7 +913,7 @@ class NumberInputWidget<T extends GenericProviderState> extends StatelessWidget 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('${display_name}:'),
+        Text(display_text!),
         TextField(
           keyboardType: integer! ? TextInputType.number : TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
@@ -826,7 +928,7 @@ class NumberInputWidget<T extends GenericProviderState> extends StatelessWidget 
 class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
   final T appState;
   final ElmModuleList<T> widget;
-  final String display_name;
+  final String display_text;
   final String internal_name;
   final Map<String, dynamic> itemConfig;
   final Map<String, dynamic> rowConfig;
@@ -836,7 +938,7 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
     required this.appState,
     required this.widget,
     required this.internal_name,
-    required this.display_name,
+    required this.display_text,
     required this.itemConfig,
     required this.rowConfig,
     required this.colConfig,
@@ -850,14 +952,14 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(display_name),
+        Text(display_text),
         Table(
           children: [
             TableRow(
               children: List.generate(colSize, (index) {
                 return TextField(
                   decoration: InputDecoration(
-                    hintText: itemConfig['display_name'],
+                    hintText: itemConfig['display_text'],
                   ),
                 );
               }),

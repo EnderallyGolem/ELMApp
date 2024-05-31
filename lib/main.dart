@@ -1,6 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:get/get.dart';
+import 'package:double_back_to_close_app/double_back_to_close_app.dart';
+import '/util_classes.dart';
+import 'dart:convert';
+
 import 'pages/1_wave_page.dart';
 import 'pages/2_initial_page.dart';
 import 'pages/3_setting_page.dart';
@@ -9,10 +14,7 @@ import 'pages/5_summary_page.dart';
 import 'pages/6_codename_page.dart';
 import 'pages/7_misc_page.dart';
 import '/strings.dart';
-import 'package:get/get.dart';
-import 'package:double_back_to_close_app/double_back_to_close_app.dart';
-import '/util_classes.dart';
-import 'dart:convert';
+import '/util_functions.dart';
 
 void main() {
   runApp(const MyApp());

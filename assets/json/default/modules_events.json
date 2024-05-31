@@ -1,13 +1,13 @@
 {
     "normal_spawn": {
         "enabled": true,
-        "display_name": "Normal Spawn",
+        "display_text": "Normal Spawn",
         "icon": "misc_flag",
         "inputs": {
-            "aliases": {"type": "aliases", "display_name":"Aliases"},
-            "add_pf": {"type": "number", "display_name":"Additional PF", "integer": true, "range": "0.."},
-            "L_zombie_list": {"type": "list", "display_name":"Zombies", 
-                "item": {"type": "codename_zombie", "display_name":"Zombie Typename"}, 
+            "aliases": {"type": "aliases", "display_text":"Aliases: "},
+            "add_pf": {"type": "number", "display_text":"Additional PF: ", "integer": true, "range": "0.."},
+            "L_zombie_list": {"type": "list", "display_text":"Zombies: ", 
+                "item": {"type": "codename_zombie", "display_text":"Zombie Typename: "}, 
                 "axis_row": {"axis_type": "setvalue", "values": {"1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "Random": null}},
                 "axis_col": {"axis_type": "empty", "size": "5.."}
             }
@@ -29,23 +29,23 @@
     },
     "custom_code": {
         "enabled": true,
-        "display_name": "Custom Code",
+        "display_text": "Custom Code",
         "icon": "misc_star",
         "inputs": {
-            "L_level_modules": {"type": "list", "display_name":"Level Modules", 
-                "item": {"type": "text", "display_name":"Module"}, 
+            "L_level_modules": {"type": "list", "display_text":"Level Modules: ", 
+                "item": {"type": "text", "display_text":"Module"}, 
                 "axis_row": {"axis_type": "empty", "size": "2.."},
                 "axis_col": {"axis_type": "empty", "size": "2"}
             },
-            "L_wave_modules": {"type": "list", "display_name":"Wave Modules", 
-                "item": {"type": "text", "display_name":"Module"}, 
+            "L_wave_modules": {"type": "list", "display_text":"Wave Modules: ", 
+                "item": {"type": "text", "display_text":"Module"}, 
                 "axis_row": {"axis_type": "specifyvalue", "values": 
-                    {"type": "number", "display_name":"Wave", "integer": true, "range": "1.."}
+                    {"type": "number", "display_text":"Wave", "integer": true, "range": "1.."}
                 },
                 "axis_col": {"axis_type": "empty", "size": "2"}
             },
-            "L_raw_code": {"type": "list", "display_name":"Code", 
-                "item": {"type": "text", "display_name":"Code"}, 
+            "L_raw_code": {"type": "list", "display_text":"Code:", 
+                "item": {"type": "text", "display_text":"Code"}, 
                 "axis_row": {"axis_type": "empty", "size": "1..", "default_size": 3},
                 "axis_col": {"axis_type": "empty", "size": "1..", "default_size": 1}
             }
@@ -56,18 +56,27 @@
     },
     "test_event": {
         "enabled": true,
-        "display_name": "Test Event",
+        "display_text": "Test Event",
         "icon": "misc_sun",
         "inputs": {
-            "aliases": {"type": "aliases", "display_name":"Aliases"},
-            "some_text": {"type": "text", "display_name":"Randomtxt", "default_text":"defaul"},
-            "#add_pf": {"type": "number", "display_name":"Additional PF", "integer": true, "range": "0.."},
-            "#checkbox": {"type": "checkbox", "display_name": "yes or no", "default_bool": true}
+            "#Note:": "You can reference other inputs or variables here. Variables here will only be updated once however!",
+            "none": {"type": "none", "display_text": ":)"},
+            "aliases": {"type": "aliases", "display_text":"Aliases: "},
+            "some_text": {"type": "text", "display_text":"Cool Text", "default_text":"first text"},
+            "some_more_text": {"type": "text", "display_text":"More Text", "default_text":"second text"},
+            "combined_text": {"type": "none", "display_text": "!combined_text_variable"},
+
+            "#add_pf": {"type": "number", "display_text":"Additional PF: ", "integer": true, "range": "0.."},
+            "#checkbox": {"type": "checkbox", "display_text": "yes or no", "default_bool": true}
         },
         "variables": {
             "#Automatic Variables": "default_aliases, wave_number",
+            "#Note1:": "You can reference other variables or inputs here. Variables will be updated until they stop changing (max 30 updates)",
+            "#Note2:": "No UI is shown, and the types are different and allow you to do more complicated stuff.",
+
             "aliases_rtid": {"type": "text_concatenate", "text_array": ["\"RTID(" ,"!aliases", "@CurrentLevel)\""]},
-            "#some_text_long": {"type": "text_concatenate", "text_array": ["the front", "!some_text", "the bacc"]},
+            "combined_text_variable": {"type": "text_concatenate", "text_array": ["Combined:", "!some_text", "&", "!some_more_text"], "text_seperator": " "},
+
             "#offset_pf_plus": {"type": "number_offset", "number": "!add_pf", "offset": 1, "range": "0.."},
             "#offset_pf_minus": {"type": "number_offset", "number": "!add_pf", "offset": 1, "range": "0.."},
             "#checkbox_chooser": {"type": "checkbox_chooser", "true_option": "!offset_pf_plus", "false_option": "!offset_pf_minus"}
@@ -89,9 +98,11 @@
     },
     "Empty": {
         "enabled": false,
-        "display_name": "No Event",
+        "display_text": "No Event",
         "icon": "misc_skull",
-        "inputs": {},
+        "inputs": {
+            "nothing": {"type": "none", "display_text":"!select_module_message"}
+        },
         "level_modules": [],
         "wave_modules": [],
         "raw_code": []
