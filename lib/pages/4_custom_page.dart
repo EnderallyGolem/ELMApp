@@ -9,9 +9,10 @@ class ProviderCustomState extends ChangeNotifier implements GenericProviderState
 
   //Change these first 4!
   @override Color themeColour = Color.fromARGB(255, 58, 104, 183); //Colour used by UI
-  @override bool isVertical = false; //If modules extend vertically down or horizontally right
+  @override bool isVertical = true; //If modules extend vertically down or horizontally right
   @override Map<String, bool> enabledButtons = //Change enabled buttons. extra contains all disabled buttons.
-    {'shiftup': false, 'shiftdown': false, 'copy': false, 'delete': true, 'add': true, 'extra': true}; //TO-DO: Button for copying event into another wave
+    {'minimise': false, 'shiftup': false, 'shiftdown': false, 'copy': false, 'delete': true, 'add': true, 'extra': true}; //TO-DO: Button for copying event into another wave
+  @override String moduleJsonFileName = 'modules_custom';
 
   @override List<ElmModuleList> elmModuleListArr = [];
   @override GlobalKey<AnimatedListState> animatedModuleListKey = GlobalKey<AnimatedListState>();
@@ -19,12 +20,15 @@ class ProviderCustomState extends ChangeNotifier implements GenericProviderState
   @override ScrollController scrollController = ScrollController();
   @override double scrollOffset = 0.0;
 
-  // Updates UI and main level code
+  // Updates main level code
   @override void updateModuleState(){
-    debugPrint('custom page | updateModuleState');
-    notifyListeners();                                              //Updates the displayed module UI state
     updateModuleCodeInMain(elmModuleListArr: elmModuleListArr);     //Updates module code in main.dart
     ProviderMainState.updateLevelCode();                            //Updates the full code in main.dart
+  }
+
+  // Updates UI
+  @override void updateModuleUI(){
+    notifyListeners();                                              //Updates the displayed module UI state
   }
 
   // Generate the updated waveCode, then updates the waveCode in main.dart with it
@@ -32,8 +36,18 @@ class ProviderCustomState extends ChangeNotifier implements GenericProviderState
     dynamic moduleCode = {"objects": [], "levelModules": [], "waveModules": [],};
   
     for (int moduleIndex = 0; moduleIndex < elmModuleListArr.length; moduleIndex++){
-      //TO-DO: Proper updating of moduleCode once the proper module format is made
-      moduleCode["objects"].add(elmModuleListArr[moduleIndex].value);
+
+      //TO-DO: WaveModules has to be changed. It is to be added to the wave number.
+      //Might be a good idea to keep it in the wave number + RTID format until the end.
+      if(elmModuleListArr[moduleIndex].value['internal_data']['objects'] != null && elmModuleListArr[moduleIndex].value['internal_data']['objects'] != ""){
+        moduleCode["objects"].add(elmModuleListArr[moduleIndex].value['internal_data']['objects']);
+      }
+      if(elmModuleListArr[moduleIndex].value['internal_data']['levelModules'] != null && elmModuleListArr[moduleIndex].value['internal_data']['levelModules'] != ""){
+        moduleCode["levelModules"].add(elmModuleListArr[moduleIndex].value['internal_data']['levelModules']);
+      }
+      if(elmModuleListArr[moduleIndex].value['internal_data']['waveModules'] != null && elmModuleListArr[moduleIndex].value['internal_data']['waveModules'] != ""){
+        moduleCode["waveModules"].add(elmModuleListArr[moduleIndex].value['internal_data']['waveModules']);
+      }
     }
     ProviderMainState.customCode = moduleCode;
   }

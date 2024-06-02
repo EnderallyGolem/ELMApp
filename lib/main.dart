@@ -67,8 +67,7 @@ class ProviderMainState extends ChangeNotifier {
 
   //Values accessible anywhere!
   static dynamic global = {
-    'modulesEventJson': {},
-    'modulesEventJsonEnabled': {},
+    'moduleJsons': {},
     'waveCount': 0, //TO-DO: stuff for this. Create function to update when importing level, and when editing relevant pages.
   };
 
@@ -128,8 +127,30 @@ class ProviderMainState extends ChangeNotifier {
       'waveModules': [...waveCode['objects'], ...initialCode['waveModules'], ...settingCode['waveModules'], ...customCode['waveModules']],
     };
 
-    debugPrint('main | updateLevelCode: Updating level to new code: $levelCode');
+    //debugPrint('main | updateLevelCode: Updating level to new code: $levelCode');
     ProviderMiscState.getCodeShown;
+  }
+
+  static const List jsonFileNames = ['modules_events', "modules_custom"];   //All file names for the jsons that specify module information w/o the .json
+  //Run this to update the jsons that specify module information
+  static void reloadModuleJsons({List jsonFileNamesToUpdate = jsonFileNames}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      for(String filename in jsonFileNamesToUpdate){
+        dynamic eventObj = await loadJson(path: 'assets/json/default/${filename}.json');
+      
+        //Turn json into map
+        eventObj.forEach((event, value) {
+          value["Image"] = Image.asset('assets/icon/moduleassets/${value["icon"]}.png', height: 20, width: 20,);
+        });
+        ProviderMainState.global['moduleJsons'][filename] = eventObj;
+      
+        //Turn ENABLED parts of json into map
+        final filteredMap = Map.fromEntries(
+          eventObj.entries.where((entry) => entry.value["enabled"] != false)
+        );
+        ProviderMainState.global['moduleJsons']['${filename}_enabled'] = filteredMap;
+      }
+    });
   }
 
   void updateMainState(){
@@ -160,21 +181,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState(){
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      dynamic eventObj = await loadJson(path: 'assets/json/default/modules_events.json');
-
-      //Turn modules_events.json into map
-      eventObj.forEach((event, value) {
-        value["Image"] = Image.asset('assets/icon/moduleassets/${value["icon"]}.png', height: 20, width: 20,);
-      });
-      ProviderMainState.global['modulesEventJson'] = eventObj;
-
-      //Turn ENABLED parts of modules_events.json into map
-      final filteredMap = Map.fromEntries(
-        eventObj.entries.where((entry) => entry.value["enabled"] != false)
-      );
-      ProviderMainState.global['modulesEventJsonEnabled'] = filteredMap;
-    });
+    ProviderMainState.reloadModuleJsons();
   }
 
   @override

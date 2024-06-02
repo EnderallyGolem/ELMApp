@@ -81,9 +81,11 @@ abstract class GenericProviderState {
   late ScrollController scrollController;
   late double scrollOffset;
   late Map<String, bool> enabledButtons;
+  late String moduleJsonFileName;
 
   void dispose();
   void updateModuleState();
+  void updateModuleUI();
   void updateModuleCodeInMain({required elmModuleListArr});
   void importModuleCode({dynamic moduleCodeToAdd = ''});
 }
@@ -100,28 +102,42 @@ class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
     //Sets a value if null
     key ??= UniqueKey();
     value ??= {
+      //Entirely for the dropdown list selecting which module is used
       'module_dropdown_list': {
         'dropdown_module_display_text': 'util_default_module_dropdown'.tr,
         'dropdown_module_internal_name': 'Empty',
         'dropdown_image': Image.asset('assets/icon/moduleassets/misc_empty.png', height: 20, width: 20),
       },
+      //Stored internal values. Things you type should be stored here.
       'internal_data': {
-        'firstUpdate': true,
-      }, //Stored what you type. What you type is not necessarily variables (empty => variable is default value instead of internal data)
+        'minimised': false,
+        'objects': [],
+        'levelModules': [],
+        'waveModules': [],
+      }, 
+      //Stored values that are actually used. If you typed nothing, this can be different from internal_data (uses default value instead)
       'variables': {
         'select_module_message': 'util_default_module_message'.tr,
+        'aliases': null,
         'default_aliases': '',
         'event_number': moduleIndex + 1,
       }
     };
     uniqueValue ??= {
+      //Internal data which ARE NOT COPIED when the wave is copied.
+      'internal_data': {
+        'firstUpdate': true,
+      },
+      //values is deep copied, but controllers aren't deep copied (so it's more like medium copied?)
       'controller_data': {},
     };
     //Update values on rebuild
     value['variables']['event_number'] = moduleIndex + 1;
     value['variables']['default_aliases'] = '${value['module_dropdown_list']['dropdown_module_internal_name']}_${value['variables']['event_number']}';
-
-    debugPrint('Building ElmModuleList element: Index ${moduleIndex} ${key}');
+    if(value['variables']['aliases'] == null){
+      value['variables']['aliases'] = value['variables']['default_aliases'];
+    }
+    debugPrint('${key} ${moduleIndex} || Value ${value}');
   }
 
   static Widget _buildAnimatedElmModuleList<T extends GenericProviderState>({required int moduleIndex, required Animation<double> animation, required T appState}) {
@@ -142,10 +158,12 @@ class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
       duration: Duration(milliseconds: 150),
       (context, animation) => _buildAnimatedElmModuleList<T>(moduleIndex: moduleIndex, animation: animation, appState: appState)
     );
-    debugPrint('util_classes | deleteModule: Deleted module for index ${moduleIndex}');
   }
 
-  static void addModuleBelow<T extends GenericProviderState>({required int moduleIndex, dynamic newValue = null, required T appState}) {
+  static void addModuleBelow<T extends GenericProviderState>({required int moduleIndex, dynamic newValue = null, required T appState, bool deepCopyValue = false}) {
+    if (newValue != null && deepCopyValue){
+      newValue = deepCopy(newValue);
+    }
     moduleIndex = moduleIndex < -1 ? -1 : moduleIndex;
     moduleIndex = moduleIndex > appState.elmModuleListArr.length - 1 ? appState.elmModuleListArr.length - 2 : moduleIndex;
     appState.elmModuleListArr.insert(moduleIndex+1, ElmModuleList<T>(moduleIndex: moduleIndex, value: newValue)); //newValue will be new module list
@@ -153,7 +171,6 @@ class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
       moduleIndex+1, 
       duration: Duration(milliseconds: 150)
     );
-    debugPrint('util_classes | addModuleBelow: Added value ${newValue} at index ${moduleIndex}');
   }
 
   ///
@@ -161,12 +178,10 @@ class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
   ///
   static void changeModuleValue<T extends GenericProviderState>({int moduleIndex = 0, required dynamic newValue, required dynamic path, required T appState}) {
     setNestedProperty(obj: appState.elmModuleListArr[moduleIndex].value, path: path, value: newValue);
-    debugPrint('util_classes | changeModuleValue: Updated module for index ${moduleIndex}. New value: ${newValue}');
   }
 
-  static void updateAllModule<T extends GenericProviderState>({required T appState}) {
-    appState.updateModuleState();
-    debugPrint('util_classes | updateAllModule: Updated all modules');
+  static void updateAllModuleUI<T extends GenericProviderState>({required T appState}) {
+    appState.updateModuleUI();
   }
 
   @override
@@ -191,13 +206,136 @@ class _ElmModuleListState<T extends GenericProviderState> extends State<ElmModul
 
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if(appGenericState.updateCode){
-        appGenericState.updateModuleState(); //Update state the first time it is loaded. Such a dumb workaround...
+        appGenericState.updateModuleUI(); //Update UI the first time it is loaded. Such a dumb workaround...
         appGenericState.updateCode = false;
       }
     });
 
     bool isVertical = appGenericState.isVertical;
-    return ElmSingleModuleMainWidget(widget: widget, appGenericState: appGenericState, isVertical: isVertical);
+    if (widget.value['internal_data']['minimised']){
+      //Minimised single module
+      return ElmSingleModuleMinimisedWidget(widget: widget, appGenericState: appGenericState, isVertical: isVertical);
+    } else {
+      //The normal single module
+      return ElmSingleModuleMainWidget(widget: widget, appGenericState: appGenericState, isVertical: isVertical);
+    }
+  }
+}
+
+///
+/// Single Module - Minimised
+///
+class ElmSingleModuleMinimisedWidget<T extends GenericProviderState> extends StatelessWidget {
+  const ElmSingleModuleMinimisedWidget({
+    super.key,
+    required this.widget,
+    required this.appGenericState,
+    required this.isVertical,
+  });
+
+  final ElmModuleList widget;
+  final T appGenericState;
+  final bool isVertical;
+
+  @override
+  Widget build(BuildContext context) {
+    if(appGenericState.isVertical){
+      //Vertical: Return Row
+      return Row(
+        children: [
+          SizedBox(
+            width: 150,
+            child: ElevatedButton(
+              onPressed: (){
+                widget.value['internal_data']['minimised'] = !widget.value['internal_data']['minimised'];
+                ElmModuleList.updateAllModuleUI(appState: appGenericState);
+              },
+              style: ElevatedButton.styleFrom(
+                fixedSize: Size.fromHeight(30),
+                minimumSize: Size.fromHeight(30),
+                elevation: 2,
+                padding: EdgeInsets.fromLTRB(5, 0, 5, 0),
+                backgroundColor: Color.fromARGB(255, 216, 216, 216),
+                side: BorderSide(
+                  color: Color.fromARGB(63, 10, 53, 117), // Dark blue outline color
+                  width: 0.6, // Outline thickness
+                ),
+              ),
+              child: Row(
+                children: [
+                  widget.value['module_dropdown_list']['dropdown_image'],
+                  SizedBox(width: 4),
+                  Expanded(
+                    child: AutoSizeText(
+                      widget.value['variables']['aliases'],
+                      maxFontSize: 14,
+                      minFontSize: 5,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        color: appGenericState.themeColour,
+                      ),
+                      overflow: TextOverflow.fade,
+                    ),
+                  ),
+                ]
+              )
+            ),
+          ),
+          //Module Button List
+          ElmModuleButtonList(appGenericState: appGenericState, widget: widget, isVertical: isVertical),
+          //Purpose of offstage instead of nothing is so functions that run when module is built actually run
+          Offstage(child: ElmSingleModuleMainWidget(widget: widget, appGenericState: appGenericState, isVertical: isVertical)),
+        ],
+      );
+    } else {
+      //Horizontal: Return Column
+      return Column(
+        children: [
+          SizedBox(
+            width: 135,
+            child: ElevatedButton(
+              onPressed: (){
+                widget.value['internal_data']['minimised'] = !widget.value['internal_data']['minimised'];
+                ElmModuleList.updateAllModuleUI(appState: appGenericState);
+              },
+              style: ElevatedButton.styleFrom(
+                fixedSize: Size.fromHeight(30),
+                minimumSize: Size.fromHeight(30),
+                elevation: 2,
+                padding: EdgeInsets.fromLTRB(5, 0, 5, 0),
+                backgroundColor: Color.fromARGB(255, 216, 216, 216),
+                side: BorderSide(
+                  color: Color.fromARGB(63, 10, 53, 117), // Dark blue outline color
+                  width: 0.6, // Outline thickness
+                ),
+              ),
+              child: Row(
+                children: [
+                  widget.value['module_dropdown_list']['dropdown_image'],
+                  SizedBox(width: 4),
+                  Expanded(
+                    child: AutoSizeText(
+                      widget.value['variables']['aliases'],
+                      maxFontSize: 14,
+                      minFontSize: 5,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        color: appGenericState.themeColour,
+                      ),
+                      overflow: TextOverflow.fade,
+                    ),
+                  ),
+                ]
+              )
+            ),
+          ),
+          //Module Button List
+          ElmModuleButtonList(appGenericState: appGenericState, widget: widget, isVertical: isVertical),
+          //Purpose of offstage instead of nothing is so functions that run when module is built actually run
+          Offstage(child: ElmSingleModuleMainWidget(widget: widget, appGenericState: appGenericState, isVertical: isVertical)),
+        ],
+      );
+    }
   }
 }
 
@@ -248,7 +386,7 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
                       ),
                     ],
                   ),
-                  items: ProviderMainState.global["modulesEventJsonEnabled"].entries.map<DropdownMenuItem<String>>((entry) {
+                  items: ProviderMainState.global["moduleJsons"]["${appGenericState.moduleJsonFileName}_enabled"].entries.map<DropdownMenuItem<String>>((entry) {
                   return DropdownMenuItem<String>(
                     value: entry.key,
                     child: FittedBox(
@@ -272,15 +410,14 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
                   //value: widget.value['module_dropdown_list']['dropdown_module_display_text'],
                   onChanged: (value) {
                     widget.value['module_dropdown_list']['dropdown_module_internal_name'] = value;
-                    if(ProviderMainState.global["modulesEventJson"][value] == null){
+                    if(ProviderMainState.global["moduleJsons"][appGenericState.moduleJsonFileName][value] == null){
                       widget.value['module_dropdown_list']['dropdown_module_display_text'] = value;
                     } else {
-                      widget.value['module_dropdown_list']['dropdown_module_display_text'] = ProviderMainState.global["modulesEventJson"][value]!["display_text"];
-                      widget.value['module_dropdown_list']['dropdown_image'] = ProviderMainState.global["modulesEventJson"][value]!["Image"];
+                      widget.value['module_dropdown_list']['dropdown_module_display_text'] = ProviderMainState.global["moduleJsons"][appGenericState.moduleJsonFileName][value]!["display_text"];
+                      widget.value['module_dropdown_list']['dropdown_image'] = ProviderMainState.global["moduleJsons"][appGenericState.moduleJsonFileName][value]!["Image"];
                     }
-                    debugPrint('Set to ${widget.value['module_dropdown_list']['dropdown_module_internal_name']}');
-                    ElmModuleList.updateAllModule(appState: appGenericState);
-                    widget.value['internal_data']['firstUpdate'] = true;
+                    ElmModuleList.updateAllModuleUI(appState: appGenericState);
+                    widget.uniqueValue['internal_data']['firstUpdate'] = true;
                   },
                   buttonStyleData: ButtonStyleData(
                     height: 50,
@@ -324,177 +461,8 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
                 ),
               ),
             ),
-            //Shift Up
-            ElmIconButton(iconData: isVertical ? Icons.arrow_upward : Icons.arrow_back, iconColor: appGenericState.themeColour, buttonWidth: 35, enabled: appGenericState.enabledButtons['shiftup'],
-              onPressFunctions: () {
-                ElmModuleList.addModuleBelow(
-                  moduleIndex: widget.moduleIndex - 2,
-                  appState: appGenericState,
-                  newValue: widget.value,
-                );
-                ElmModuleList.deleteModule(
-                  moduleIndex: widget.moduleIndex + 1, 
-                  appState: appGenericState, 
-                  context: context,
-                );
-                ElmModuleList.updateAllModule(
-                  appState: appGenericState,
-                );
-              }
-            ),
-            //Shift Down
-            ElmIconButton(iconData: isVertical ? Icons.arrow_downward : Icons.arrow_forward, iconColor: appGenericState.themeColour, buttonWidth: 35, enabled: appGenericState.enabledButtons['shiftdown'],
-              onPressFunctions: () {
-                ElmModuleList.addModuleBelow(
-                  moduleIndex: widget.moduleIndex + 1,
-                  appState: appGenericState,
-                  newValue: widget.value,
-                );
-                ElmModuleList.deleteModule(
-                  moduleIndex: widget.moduleIndex, 
-                  appState: appGenericState, 
-                  context: context,
-                );
-                ElmModuleList.updateAllModule(
-                  appState: appGenericState,
-                );
-              }
-            ),
-            //Copy
-            ElmIconButton(iconData: Icons.copy, iconColor: appGenericState.themeColour, enabled: appGenericState.enabledButtons['copy'],
-              onPressFunctions: () {
-                ElmModuleList.addModuleBelow(
-                  moduleIndex: widget.moduleIndex,
-                  appState: appGenericState,
-                  newValue: widget.value,
-                );
-                ElmModuleList.updateAllModule(
-                  appState: appGenericState,
-                );
-              }
-            ),
-            //Delete
-            ElmIconButton(iconData: Icons.delete, iconColor: appGenericState.themeColour, enabled: appGenericState.enabledButtons['delete'],
-            onPressFunctions: (){
-              //TO-DO: Option to disable warning
-              Get.defaultDialog(title: 'util_deletewave_warning_title'.tr, middleText:  'util_deletewave_warning_desc'.tr, textCancel: 'Cancel'.tr, textConfirm: 'generic_confirm'.tr, onConfirm: (){
-                ElmModuleList.deleteModule(
-                  moduleIndex: widget.moduleIndex,
-                  appState: appGenericState,
-                  context: context
-                );
-                ElmModuleList.updateAllModule(
-                  appState: appGenericState,
-                );
-                Get.back();
-              });
-            
-            }),
-            //Add
-            ElmIconButton(iconData: Icons.add, iconColor: appGenericState.themeColour, enabled: appGenericState.enabledButtons['add'],
-              onPressFunctions:(){
-                ElmModuleList.addModuleBelow(
-                  moduleIndex: widget.moduleIndex,
-                  appState: appGenericState,
-                  newValue: null,
-                );
-                ElmModuleList.updateAllModule(
-                  appState: appGenericState,
-                );
-              }
-            ),
-            //Extra Menu. Contains all disabled buttons.
-            ElmIconButton(iconData: Icons.more_horiz, iconColor: appGenericState.themeColour, enabled: appGenericState.enabledButtons['extra'],
-              onPressFunctions:(){
-                Get.defaultDialog(title: 'util_moreactions'.tr, middleTextStyle: TextStyle(fontSize: 0), textCancel: 'Cancel'.tr, 
-                  actions: [
-                    //Shift Up
-                    ElmIconButton(iconData: isVertical ? Icons.arrow_upward : Icons.arrow_back, iconColor: appGenericState.themeColour, buttonWidth: 50, buttonHeight: 30, enabled: false == appGenericState.enabledButtons['shiftup'],
-                      onPressFunctions: () {
-                        ElmModuleList.addModuleBelow(
-                          moduleIndex: widget.moduleIndex - 2,
-                          appState: appGenericState,
-                          newValue: widget.value,
-                        );
-                        ElmModuleList.deleteModule(
-                          moduleIndex: widget.moduleIndex + 1, 
-                          appState: appGenericState, 
-                          context: context,
-                        );
-                        ElmModuleList.updateAllModule(
-                          appState: appGenericState,
-                        );
-                        Get.back();
-                      }
-                    ),
-                    //Shift Down
-                    ElmIconButton(iconData: isVertical ? Icons.arrow_downward : Icons.arrow_forward, iconColor: appGenericState.themeColour, buttonWidth: 50, buttonHeight: 30, enabled: false == appGenericState.enabledButtons['shiftdown'],
-                      onPressFunctions: () {
-                        ElmModuleList.addModuleBelow(
-                          moduleIndex: widget.moduleIndex + 1,
-                          appState: appGenericState,
-                          newValue: widget.value,
-                        );
-                        ElmModuleList.deleteModule(
-                          moduleIndex: widget.moduleIndex, 
-                          appState: appGenericState, 
-                          context: context,
-                        );
-                        ElmModuleList.updateAllModule(
-                          appState: appGenericState,
-                        );
-                        Get.back();
-                      }
-                    ),
-                    //Copy
-                    ElmIconButton(iconData: Icons.copy, iconColor: appGenericState.themeColour, buttonWidth: 50, buttonHeight: 30, enabled: false == appGenericState.enabledButtons['copy'],
-                      onPressFunctions: () {
-                        ElmModuleList.addModuleBelow(
-                          moduleIndex: widget.moduleIndex,
-                          appState: appGenericState,
-                          newValue: widget.value,
-                        );
-                        ElmModuleList.updateAllModule(
-                          appState: appGenericState,
-                        );
-                        Get.back();
-                      }
-                    ),
-                    //Delete
-                    ElmIconButton(iconData: Icons.delete, iconColor: appGenericState.themeColour, buttonWidth: 50, buttonHeight: 30, enabled: false == appGenericState.enabledButtons['delete'],
-                    onPressFunctions: (){
-                      //TO-DO: Option to disable warning
-                      Get.defaultDialog(title: 'util_deletewave_warning_title'.tr, middleText:  'util_deletewave_warning_desc'.tr, textCancel: 'Cancel'.tr, textConfirm: 'generic_confirm'.tr, onConfirm: (){
-                        ElmModuleList.deleteModule(
-                          moduleIndex: widget.moduleIndex,
-                          appState: appGenericState,
-                          context: context
-                        );
-                        ElmModuleList.updateAllModule(
-                          appState: appGenericState,
-                        );
-                        Get.back();
-                        Get.back();
-                      });
-                    }),
-                    //Add
-                    ElmIconButton(iconData: Icons.add, iconColor: appGenericState.themeColour, buttonWidth: 50, buttonHeight: 30, enabled: false == appGenericState.enabledButtons['add'],
-                      onPressFunctions:(){
-                        ElmModuleList.addModuleBelow(
-                          moduleIndex: widget.moduleIndex,
-                          appState: appGenericState,
-                          newValue: null,
-                        );
-                        ElmModuleList.updateAllModule(
-                          appState: appGenericState,
-                        );
-                        Get.back();
-                      }
-                    ),
-                  ]
-                );
-              }
-            ),
+            //Module Button List
+            ElmModuleButtonList(appGenericState: appGenericState, widget: widget, isVertical: isVertical),
           ],
         ),
         //SizedBox(height: 10),
@@ -521,7 +489,10 @@ class ElmSingleModuleInputWidget<T extends GenericProviderState> extends Statele
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: BoxConstraints(minWidth: 300, maxHeight: 200),
+      constraints: BoxConstraints(
+        minWidth: appGenericState.isVertical ? MediaQuery.of(context).size.width : 300, 
+        maxHeight: 200
+      ),
       child: Container(
         decoration: BoxDecoration(
           color: Color.fromARGB(17, 22, 123, 255), // Light blue background color
@@ -536,7 +507,7 @@ class ElmSingleModuleInputWidget<T extends GenericProviderState> extends Statele
         padding: const EdgeInsets.all(5),
         margin: const EdgeInsets.all(5),
         height: 200,
-        child: ElmDynamicModuleForm(appState: appGenericState, widget: widget, config: ProviderMainState.global['modulesEventJson']['${widget.value['module_dropdown_list']['dropdown_module_internal_name']}']),
+        child: ElmDynamicModuleForm(appState: appGenericState, widget: widget, config: ProviderMainState.global["moduleJsons"][appGenericState.moduleJsonFileName]['${widget.value['module_dropdown_list']['dropdown_module_internal_name']}']),
       ),
     );
   }
@@ -558,13 +529,20 @@ class ElmDynamicModuleForm<T extends GenericProviderState> extends StatelessWidg
     updateWidgetAndVariableInfo(formWidgets: formWidgets, loopMaxNum: loopMaxNum);
 
     //If module is just changed, it isn't updated properly. Update it once more!
-    if(widget.value['internal_data']['firstUpdate']){
-      widget.value['internal_data']['firstUpdate'] = false;
+    if(widget.uniqueValue['internal_data']['firstUpdate']){
+      widget.uniqueValue['internal_data']['firstUpdate'] = false;
       SchedulerBinding.instance.addPostFrameCallback((_) {
-        ElmModuleList.updateAllModule(appState: appState);
+        ElmModuleList.updateAllModuleUI(appState: appState);
       });
     }
 
+    //Update level code and export to main
+    widget.value['internal_data']['objects'] = variableCheckDynamic(input: config['raw_code'], widget: widget);
+    widget.value['internal_data']['levelModules'] = variableCheckDynamic(input: config['level_modules'], widget: widget);
+    widget.value['internal_data']['waveModules'] = variableCheckDynamic(input: config['wave_modules'], widget: widget);
+    appState.updateModuleState(); //Update the module code in main! ONCE!
+
+    //Build the UI
     return Wrap(
       spacing: 5,
       runSpacing: 5,
@@ -576,13 +554,12 @@ class ElmDynamicModuleForm<T extends GenericProviderState> extends StatelessWidg
 
   void updateWidgetAndVariableInfo({required List<Widget> formWidgets, int loopMaxNum = 1}) {
     dynamic beforeData = deepCopy(widget.value);
-    debugPrint('loopMaxNum = ${loopMaxNum}');
     
     //Run code for each variable
     config['variables'] ??= {};
     config['variables'].forEach((internal_name, value) {
       if (!internal_name.startsWith('#')) {
-        updateVariablesFromConfig(internal_name: internal_name, config: value, widget: widget, appState: appState);
+        updateVariablesFromConfig(internal_name: internal_name, configVariable: value, widget: widget, appState: appState);
       }
     });
 
@@ -599,23 +576,22 @@ class ElmDynamicModuleForm<T extends GenericProviderState> extends StatelessWidg
     config['inputs'] ??= {};
     config['inputs'].forEach((internal_name, value) {
       if (!internal_name.startsWith('#')) {
-        formWidgets.add(createWidgetFromConfig(internal_name: internal_name, config: value, widget: widget, appState: appState));
+        formWidgets.add(createWidgetFromConfig(internal_name: internal_name, configInput: value, widget: widget, appState: appState));
       }
     });
   }
 }
 
-void updateVariablesFromConfig({required String internal_name, required Map<String, dynamic> config, required ElmModuleList widget, required GenericProviderState appState}){
-  debugPrint('Creating variable with data: $config');
-  switch (config['type']) {
+void updateVariablesFromConfig({required String internal_name, required Map<String, dynamic> configVariable, required ElmModuleList widget, required GenericProviderState appState}){
+  switch (configVariable['type']) {
     case 'text_concatenate':
       variableTextConcatenate(
         internal_name: internal_name, 
-        config: config, 
+        config: configVariable, 
         widget: widget, 
         appState: appState,
-        text_array: config['text_array'],
-        text_seperator: config['text_seperator'],
+        text_array: configVariable['text_array'],
+        text_seperator: configVariable['text_seperator'],
       );
       break;
     case 'number_offset':
@@ -625,7 +601,6 @@ void updateVariablesFromConfig({required String internal_name, required Map<Stri
       //
       break;
     default:
-      debugPrint('Type is unknown');
       break;
   }
 }
@@ -636,10 +611,13 @@ void updateVariablesFromConfig({required String internal_name, required Map<Stri
 /// 
 /// If [input] is null, return empty string
 ///
-dynamic variableCheckString({required String? input, required ElmModuleList widget, required String internal_name}){
+dynamic variableCheckString({required dynamic input, required ElmModuleList widget}){
   input ??= "";
+  if(!(input is String)){
+    return input; //If not string (if number maybe) then just immediately return that
+  };
   dynamic returnValue;
-  if(input.startsWith('!')){
+  if (input.startsWith('!')){
     returnValue = widget.value['variables'][input.substring(1)];
   } else {
     returnValue = input;
@@ -651,15 +629,19 @@ dynamic variableCheckString({required String? input, required ElmModuleList widg
 ///
 /// variableCheckString except it checks all values in a nested list/map.
 /// 
-/// If [input] is null, return empty string
+/// Checks if each value in [input] starts with a !, and if it does, turns into the variable's value.
+/// Otherwise, keep unchanged.
+/// If null, will become an empty string.
+/// 
+/// The new (deep-cloned) nested list/map is returned.
 ///
-dynamic variableCheckDynamic({required dynamic input, required ElmModuleList widget, required String internal_name}){
+dynamic variableCheckDynamic({required dynamic input, required ElmModuleList widget}){
   input ??= '';
   dynamic inputClone = deepCopy(input);
   iterateAndModifyNested(
     nestedItem: inputClone,
     function: (key, value) {
-      return variableCheckString(input: value, widget: widget, internal_name: internal_name);
+      return variableCheckString(input: value, widget: widget);
     }
   );
   inputClone ??= "";
@@ -674,59 +656,56 @@ void variableTextConcatenate({
   required List? text_array,
   required String? text_seperator,
 }){
-  text_array = variableCheckDynamic(input: text_array, widget: widget, internal_name: internal_name);
-  text_seperator = variableCheckString(input: text_seperator, widget: widget, internal_name: internal_name);
+  text_array = variableCheckDynamic(input: text_array, widget: widget);
+  text_seperator = variableCheckString(input: text_seperator, widget: widget);
 
   widget.value['variables'][internal_name] = text_array!.join(text_seperator!);
-  debugPrint('${internal_name}: ${widget.value['variables'][internal_name]}');
 }
 
-Widget createWidgetFromConfig({required String internal_name, required Map<String, dynamic> config, required ElmModuleList widget, required GenericProviderState appState}) {
-  debugPrint('Creating widget with data: $config');
-  switch (config['type']) {
+Widget createWidgetFromConfig({required String internal_name, required Map<String, dynamic> configInput, required ElmModuleList widget, required GenericProviderState appState}) {
+  switch (configInput['type']) {
     case 'none':
       return NoInputWidget(
         appState: appState,
         widget: widget,
         internal_name: internal_name,
-        display_text: config['display_text'],
+        display_text: configInput['display_text'],
       );
     case 'aliases':
       return AliasesInputWidget(
         appState: appState,
         widget: widget,
         internal_name: internal_name,
-        display_text: config['display_text'],
+        display_text: configInput['display_text'],
       );
     case 'text':
       return TextInputWidget(
         appState: appState,
         widget: widget,
         internal_name: internal_name,
-        display_text: config['display_text'],
-        default_text: config['default_text'],
+        display_text: configInput['display_text'],
+        default_text: configInput['default_text'],
       );
     case 'number':
       return NumberInputWidget(
         appState: appState,
         widget: widget,
         internal_name: internal_name,
-        display_text: config['display_text'],
-        integer: config['integer'],
-        range: config['range'],
+        display_text: configInput['display_text'],
+        integer: configInput['integer'],
+        range: configInput['range'],
       );
     case 'list':
       return ListInputWidget(
         appState: appState,
         widget: widget,
         internal_name: internal_name,
-        display_text: config['display_text'],
-        itemConfig: config['item'],
-        rowConfig: config['axis_row'],
-        colConfig: config['axis_col'],
+        display_text: configInput['display_text'],
+        itemConfig: configInput['item'],
+        rowConfig: configInput['axis_row'],
+        colConfig: configInput['axis_col'],
       );
     default:
-      debugPrint('Type is unknown');
       return SizedBox.shrink();
   }
 }
@@ -743,7 +722,7 @@ class NoInputWidget<T extends GenericProviderState> extends StatelessWidget {
     required this.internal_name,
     required this.display_text,
   }){
-    display_text = variableCheckString(input: display_text!, widget: widget, internal_name: internal_name);
+    display_text = variableCheckString(input: display_text!, widget: widget);
   }
 
   @override
@@ -765,13 +744,17 @@ class AliasesInputWidget<T extends GenericProviderState> extends StatelessWidget
     required this.display_text,
   }){
     display_text ??= "Aliases";
-    display_text = variableCheckString(input: display_text, widget: widget, internal_name: internal_name);
+    display_text = variableCheckString(input: display_text, widget: widget);
   }
 
   @override
   Widget build(BuildContext context) {
-    widget.uniqueValue['controller_data'][internal_name] ??= widget.value['internal_data'][internal_name] == null ? TextEditingController(text: '') : TextEditingController(text: widget.value['internal_data'][internal_name]);
-    widget.value['variables'][internal_name] ??= widget.value['variables']['default_aliases'];
+    //If null controller data, set to internal data text (or empty if null)
+    widget.uniqueValue['controller_data']['aliases'] ??= widget.value['internal_data']['aliases'] == null ? TextEditingController(text: '') : TextEditingController(text: widget.value['internal_data']['aliases']);
+    //If null internal data or null variable, set to default aliases
+    if(widget.value['internal_data']['aliases'] == null || widget.value['variables']['aliases'] == null){
+      widget.value['variables']['aliases'] = widget.value['variables']['default_aliases'];
+    }
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -782,7 +765,7 @@ class AliasesInputWidget<T extends GenericProviderState> extends StatelessWidget
           height: 25,
           child: Focus(
             onFocusChange: (isFocused) {
-              ElmModuleList.updateAllModule(appState: appState);
+              ElmModuleList.updateAllModuleUI(appState: appState);
             },
             child: AutoSizeTextField(
               textAlignVertical: TextAlignVertical.bottom,
@@ -790,14 +773,14 @@ class AliasesInputWidget<T extends GenericProviderState> extends StatelessWidget
               minFontSize: 5,
               maxLines: 3,
               maxLength: 100,
-              key: Key('${widget.key} ${internal_name}'),
-              controller: widget.uniqueValue['controller_data'][internal_name],
+              key: Key('${widget.key} aliases'),
+              controller: widget.uniqueValue['controller_data']['aliases'],
               onChanged: (inputValue) {
-                widget.value['internal_data'][internal_name] = inputValue;
+                widget.value['internal_data']['aliases'] = inputValue;
                 if(inputValue == ''){
-                  widget.value['variables'][internal_name] = widget.value['variables']['default_aliases'];
+                  widget.value['variables']['aliases'] = widget.value['variables']['default_aliases'];
                 } else {
-                  widget.value['variables'][internal_name] = inputValue;
+                  widget.value['variables']['aliases'] = inputValue;
                 }
               },
               keyboardType: TextInputType.text,
@@ -832,14 +815,18 @@ class TextInputWidget<T extends GenericProviderState> extends StatelessWidget {
     required this.display_text,
     required this.default_text,
   }){
-    display_text = variableCheckString(input: display_text, widget: widget, internal_name: internal_name);
-    default_text = variableCheckString(input: default_text, widget: widget, internal_name: internal_name);
+    display_text = variableCheckString(input: display_text, widget: widget);
+    default_text = variableCheckString(input: default_text, widget: widget);
   }
 
   @override
   Widget build(BuildContext context) {
+    //If null controller data, set to internal data text (or empty if null)
     widget.uniqueValue['controller_data'][internal_name] ??= widget.value['internal_data'][internal_name] == null ? TextEditingController(text: '') : TextEditingController(text: widget.value['internal_data'][internal_name]);
-    widget.value['variables'][internal_name] ??= default_text;
+    //If null internal data or null variable, set to default
+    if(widget.value['internal_data'][internal_name] == null || widget.value['variables'][internal_name] == null){
+      widget.value['variables'][internal_name] = default_text;
+    }
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -851,7 +838,7 @@ class TextInputWidget<T extends GenericProviderState> extends StatelessWidget {
           height: 25,
           child: Focus(
             onFocusChange: (isFocused) {
-              ElmModuleList.updateAllModule(appState: appState);
+              ElmModuleList.updateAllModuleUI(appState: appState);
             },
             child: AutoSizeTextField(
               textAlignVertical: TextAlignVertical.bottom,
@@ -868,12 +855,11 @@ class TextInputWidget<T extends GenericProviderState> extends StatelessWidget {
                 } else {
                   widget.value['variables'][internal_name] = inputValue;
                 }
-                print(inputValue);
               },
               keyboardType: TextInputType.text,
               decoration: InputDecoration(
                 counterText: '',
-                //border: OutlineInputBorder(),
+                //border: OutlineInputBorder(), //Use something like this for list input?
                 constraints: BoxConstraints(minWidth: 150, maxWidth: 150),
                 isDense: true,
                 isCollapsed: true,
@@ -971,6 +957,9 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
   }
 }
 
+///
+/// Tween used for ELM Modules
+///
 dynamic elmSizeTween({required animation}) {
   return CurvedAnimation(
     parent: animation, // Use the provided animation
@@ -978,6 +967,221 @@ dynamic elmSizeTween({required animation}) {
   );
 }
 
+///
+/// Single Module - Button List
+///
+class ElmModuleButtonList<T extends GenericProviderState> extends StatelessWidget {
+  const ElmModuleButtonList({
+    super.key,
+    required this.appGenericState,
+    required this.widget,
+    required this.isVertical,
+  });
+
+  final T appGenericState;
+  final ElmModuleList widget;
+  final bool isVertical;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        //Minimise
+        ElmIconButton(iconData: Icons.remove_red_eye_outlined, iconColor: appGenericState.themeColour, buttonWidth: 35, enabled: appGenericState.enabledButtons['minimise'],
+          onPressFunctions: () {
+            widget.value['internal_data']['minimised'] = !widget.value['internal_data']['minimised'];
+            ElmModuleList.updateAllModuleUI(appState: appGenericState);
+          }
+        ),
+        //Shift Up
+        ElmIconButton(iconData: isVertical ? Icons.arrow_upward : Icons.arrow_back, iconColor: appGenericState.themeColour, buttonWidth: 35, enabled: appGenericState.enabledButtons['shiftup'],
+          onPressFunctions: () {
+            ElmModuleList.addModuleBelow(
+              moduleIndex: widget.moduleIndex - 2,
+              appState: appGenericState,
+              newValue: widget.value,
+            );
+            ElmModuleList.deleteModule(
+              moduleIndex: widget.moduleIndex + 1, 
+              appState: appGenericState, 
+              context: context,
+            );
+            ElmModuleList.updateAllModuleUI(
+              appState: appGenericState,
+            );
+          }
+        ),
+        //Shift Down
+        ElmIconButton(iconData: isVertical ? Icons.arrow_downward : Icons.arrow_forward, iconColor: appGenericState.themeColour, buttonWidth: 35, enabled: appGenericState.enabledButtons['shiftdown'],
+          onPressFunctions: () {
+            ElmModuleList.addModuleBelow(
+              moduleIndex: widget.moduleIndex + 1,
+              appState: appGenericState,
+              newValue: widget.value,
+            );
+            ElmModuleList.deleteModule(
+              moduleIndex: widget.moduleIndex, 
+              appState: appGenericState, 
+              context: context,
+            );
+            ElmModuleList.updateAllModuleUI(
+              appState: appGenericState,
+            );
+          }
+        ),
+        //Copy
+        ElmIconButton(iconData: Icons.copy, iconColor: appGenericState.themeColour, enabled: appGenericState.enabledButtons['copy'],
+          onPressFunctions: () {
+            ElmModuleList.addModuleBelow(
+              moduleIndex: widget.moduleIndex,
+              appState: appGenericState,
+              newValue: widget.value,
+              deepCopyValue: true,
+            );
+            ElmModuleList.updateAllModuleUI(
+              appState: appGenericState,
+            );
+          }
+        ),
+        //Delete
+        ElmIconButton(iconData: Icons.delete, iconColor: appGenericState.themeColour, enabled: appGenericState.enabledButtons['delete'],
+        onPressFunctions: (){
+          //TO-DO: Option to disable warning
+          Get.defaultDialog(title: 'util_deletewave_warning_title'.tr, middleText:  'util_deletewave_warning_desc'.tr, textCancel: 'Cancel'.tr, textConfirm: 'generic_confirm'.tr, onConfirm: (){
+            ElmModuleList.deleteModule(
+              moduleIndex: widget.moduleIndex,
+              appState: appGenericState,
+              context: context
+            );
+            ElmModuleList.updateAllModuleUI(
+              appState: appGenericState,
+            );
+            Get.back();
+          });
+        
+        }),
+        //Add
+        ElmIconButton(iconData: Icons.add, iconColor: appGenericState.themeColour, enabled: appGenericState.enabledButtons['add'],
+          onPressFunctions:(){
+            ElmModuleList.addModuleBelow(
+              moduleIndex: widget.moduleIndex,
+              appState: appGenericState,
+              newValue: null,
+            );
+            ElmModuleList.updateAllModuleUI(
+              appState: appGenericState,
+            );
+          }
+        ),
+        //Extra Menu. Contains all disabled buttons.
+        ElmIconButton(iconData: Icons.more_horiz, iconColor: appGenericState.themeColour, enabled: appGenericState.enabledButtons['extra'],
+          onPressFunctions:(){
+            Get.defaultDialog(title: 'util_moreactions'.tr, middleTextStyle: TextStyle(fontSize: 0), textCancel: 'Cancel'.tr, 
+              actions: [
+                //Minimise
+                ElmIconButton(iconData: Icons.remove_red_eye_outlined, iconColor: appGenericState.themeColour, buttonWidth: 50, buttonHeight: 30, enabled: false == appGenericState.enabledButtons['minimise'],
+                  onPressFunctions: () {
+                    widget.value['internal_data']['minimised'] = !widget.value['internal_data']['minimised'];
+                    ElmModuleList.updateAllModuleUI(appState: appGenericState);
+                    Get.back();
+                  }
+                ),
+                //Shift Up
+                ElmIconButton(iconData: isVertical ? Icons.arrow_upward : Icons.arrow_back, iconColor: appGenericState.themeColour, buttonWidth: 50, buttonHeight: 30, enabled: false == appGenericState.enabledButtons['shiftup'],
+                  onPressFunctions: () {
+                    ElmModuleList.addModuleBelow(
+                      moduleIndex: widget.moduleIndex - 2,
+                      appState: appGenericState,
+                      newValue: widget.value,
+                    );
+                    ElmModuleList.deleteModule(
+                      moduleIndex: widget.moduleIndex + 1, 
+                      appState: appGenericState, 
+                      context: context,
+                    );
+                    ElmModuleList.updateAllModuleUI(
+                      appState: appGenericState,
+                    );
+                    Get.back();
+                  }
+                ),
+                //Shift Down
+                ElmIconButton(iconData: isVertical ? Icons.arrow_downward : Icons.arrow_forward, iconColor: appGenericState.themeColour, buttonWidth: 50, buttonHeight: 30, enabled: false == appGenericState.enabledButtons['shiftdown'],
+                  onPressFunctions: () {
+                    ElmModuleList.addModuleBelow(
+                      moduleIndex: widget.moduleIndex + 1,
+                      appState: appGenericState,
+                      newValue: widget.value,
+                    );
+                    ElmModuleList.deleteModule(
+                      moduleIndex: widget.moduleIndex, 
+                      appState: appGenericState, 
+                      context: context,
+                    );
+                    ElmModuleList.updateAllModuleUI(
+                      appState: appGenericState,
+                    );
+                    Get.back();
+                  }
+                ),
+                //Copy
+                ElmIconButton(iconData: Icons.copy, iconColor: appGenericState.themeColour, buttonWidth: 50, buttonHeight: 30, enabled: false == appGenericState.enabledButtons['copy'],
+                  onPressFunctions: () {
+                    ElmModuleList.addModuleBelow(
+                      moduleIndex: widget.moduleIndex,
+                      appState: appGenericState,
+                      newValue: widget.value,
+                      deepCopyValue: true,
+                    );
+                    ElmModuleList.updateAllModuleUI(
+                      appState: appGenericState,
+                    );
+                    Get.back();
+                  }
+                ),
+                //Delete
+                ElmIconButton(iconData: Icons.delete, iconColor: appGenericState.themeColour, buttonWidth: 50, buttonHeight: 30, enabled: false == appGenericState.enabledButtons['delete'],
+                onPressFunctions: (){
+                  //TO-DO: Option to disable warning
+                  Get.defaultDialog(title: 'util_deletewave_warning_title'.tr, middleText:  'util_deletewave_warning_desc'.tr, textCancel: 'Cancel'.tr, textConfirm: 'generic_confirm'.tr, onConfirm: (){
+                    ElmModuleList.deleteModule(
+                      moduleIndex: widget.moduleIndex,
+                      appState: appGenericState,
+                      context: context
+                    );
+                    ElmModuleList.updateAllModuleUI(
+                      appState: appGenericState,
+                    );
+                    Get.back();
+                    Get.back();
+                  });
+                }),
+                //Add
+                ElmIconButton(iconData: Icons.add, iconColor: appGenericState.themeColour, buttonWidth: 50, buttonHeight: 30, enabled: false == appGenericState.enabledButtons['add'],
+                  onPressFunctions:(){
+                    ElmModuleList.addModuleBelow(
+                      moduleIndex: widget.moduleIndex,
+                      appState: appGenericState,
+                      newValue: null,
+                    );
+                    ElmModuleList.updateAllModuleUI(
+                      appState: appGenericState,
+                    );
+                    Get.back();
+                  }
+                ),
+              ]
+            );
+          }
+        ),
+      ],
+    );
+  }
+}
+
+///
+/// The Module List
+///
 class ElmModuleListWidget<T extends GenericProviderState> extends StatelessWidget {
   ElmModuleListWidget({
     super.key,

@@ -1,31 +1,30 @@
 {
-    "normal_spawn": {
+    "custom_code": {
         "enabled": true,
-        "display_text": "Normal Spawn",
-        "icon": "misc_flag",
+        "display_text": "Custom Code",
+        "icon": "misc_star",
         "inputs": {
-            "aliases": {"type": "aliases", "display_text":"Aliases:"},
-            "add_pf": {"type": "number", "display_text":"Additional PF:", "integer": true, "range": "0.."},
-            "L_zombie_list": {"type": "list", "display_text":"Zombies:", 
-                "item": {"type": "codename_zombie", "display_text":"Zombie Typename:"}, 
-                "axis_row": {"axis_type": "setvalue", "values": {"1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "Random": null}},
-                "axis_col": {"axis_type": "empty", "size": "5.."}
+            "L_level_modules": {"type": "list", "display_text":"Level Modules:", 
+                "item": {"type": "text", "display_text":"Module"}, 
+                "axis_row": {"axis_type": "empty", "size": "2.."},
+                "axis_col": {"axis_type": "empty", "size": "2"}
+            },
+            "L_wave_modules": {"type": "list", "display_text":"Wave Modules:", 
+                "item": {"type": "text", "display_text":"Module"}, 
+                "axis_row": {"axis_type": "specifyvalue", "values": 
+                    {"type": "number", "display_text":"Wave", "integer": true, "range": "1.."}
+                },
+                "axis_col": {"axis_type": "empty", "size": "2"}
+            },
+            "L_raw_code": {"type": "list", "display_text":"Code:", 
+                "item": {"type": "text", "display_text":"Code"}, 
+                "axis_row": {"axis_type": "empty", "size": "1..", "default_size": 3},
+                "axis_col": {"axis_type": "empty", "size": "1..", "default_size": 1}
             }
         },
-        "level_modules": [],
+        "level_modules": ["!L_level_modules{Row: !axis_row, Type: !item}"],
         "wave_modules": [{"Wave": "!wave_number", "RTID": "!aliases"}],
-        "raw_code": [
-            {
-                "aliases": [
-                    "!aliases"
-                ],
-                "objclass": "SpawnZombiesJitteredWaveActionProps",
-                "objdata": {
-                    "AdditionalPlantfood": "!add_pf",
-                    "Zombies": ["!L_zombie_list{Row: !axis_row, Type: !item}"]
-                }
-            }
-        ]
+        "raw_code": ["!L_raw_code"]
     },
     "test_event": {
         "enabled": true,
@@ -57,7 +56,7 @@
             "#checkbox_chooser": {"type": "checkbox_chooser", "true_option": "!offset_pf_plus", "false_option": "!offset_pf_minus"}
         },
         "level_modules": ["!aliases"],
-        "wave_modules": [{"Wave": "!wave_number", "RTID": "!aliases"}],
+        "wave_modules": [{"Wave": "!wave_number", "RTID": "!aliases_rtid"}],
         "raw_code": [
             {
                 "aliases": [
@@ -65,7 +64,7 @@
                 ],
                 "objclass": "SpawnZombiesJitteredWaveActionProps",
                 "objdata": {
-                    "AdditionalPlantfood": 3.14,
+                    "AdditionalPlantfood": 3.1415,
                     "Zombies": "!combined_text_variable"
                 }
             }
