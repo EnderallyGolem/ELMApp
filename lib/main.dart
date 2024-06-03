@@ -193,6 +193,7 @@ class _MyHomePageState extends State<MyHomePage> {
         ), 
         child: _pages[_currentIndex][0]),
       bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.shifting,
         currentIndex: _currentIndex,
         onTap: (int index) {
           setState(() {

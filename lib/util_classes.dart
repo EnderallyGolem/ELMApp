@@ -137,7 +137,7 @@ class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
     if(value['variables']['aliases'] == null){
       value['variables']['aliases'] = value['variables']['default_aliases'];
     }
-    debugPrint('${key} ${moduleIndex} || Value ${value}');
+    //debugPrint('${key} ${moduleIndex} || Value ${value}');
   }
 
   static Widget _buildAnimatedElmModuleList<T extends GenericProviderState>({required int moduleIndex, required Animation<double> animation, required T appState}) {
@@ -245,14 +245,15 @@ class ElmSingleModuleMinimisedWidget<T extends GenericProviderState> extends Sta
         children: [
           SizedBox(
             width: 150,
+            height: 30,
             child: ElevatedButton(
               onPressed: (){
                 widget.value['internal_data']['minimised'] = !widget.value['internal_data']['minimised'];
                 ElmModuleList.updateAllModuleUI(appState: appGenericState);
               },
               style: ElevatedButton.styleFrom(
-                fixedSize: Size.fromHeight(30),
-                minimumSize: Size.fromHeight(30),
+                fixedSize: Size.fromHeight(25),
+                minimumSize: Size.fromHeight(25),
                 elevation: 2,
                 padding: EdgeInsets.fromLTRB(5, 0, 5, 0),
                 backgroundColor: Color.fromARGB(255, 216, 216, 216),
@@ -293,17 +294,18 @@ class ElmSingleModuleMinimisedWidget<T extends GenericProviderState> extends Sta
         children: [
           SizedBox(
             width: 135,
+            height: 30,
             child: ElevatedButton(
               onPressed: (){
                 widget.value['internal_data']['minimised'] = !widget.value['internal_data']['minimised'];
                 ElmModuleList.updateAllModuleUI(appState: appGenericState);
               },
               style: ElevatedButton.styleFrom(
-                fixedSize: Size.fromHeight(30),
-                minimumSize: Size.fromHeight(30),
+                fixedSize: Size.fromHeight(25),
+                minimumSize: Size.fromHeight(25),
                 elevation: 2,
                 padding: EdgeInsets.fromLTRB(5, 0, 5, 0),
-                backgroundColor: Color.fromARGB(255, 216, 216, 216),
+                backgroundColor: Color.fromARGB(155, 216, 216, 216),
                 side: BorderSide(
                   color: Color.fromARGB(63, 10, 53, 117), // Dark blue outline color
                   width: 0.6, // Outline thickness
@@ -341,6 +343,7 @@ class ElmSingleModuleMinimisedWidget<T extends GenericProviderState> extends Sta
 
 ///
 /// Single Module - Upper Half
+/// Aka the dropdown list
 ///
 class ElmSingleModuleMainWidget<T extends GenericProviderState> extends StatelessWidget {
   const ElmSingleModuleMainWidget({
@@ -364,8 +367,10 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
       children: [
         Row(
           children: [
+            //Dropdown Button
             SizedBox(
               width: 170,
+              height: 30,
               child: DropdownButtonHideUnderline(
                 child: DropdownButton2<String>(
                   isExpanded: true,
@@ -465,9 +470,14 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
             ElmModuleButtonList(appGenericState: appGenericState, widget: widget, isVertical: isVertical),
           ],
         ),
-        //SizedBox(height: 10),
         //Level Modules
-        ElmSingleModuleInputWidget(appGenericState: appGenericState, widget: widget),
+        //If isVertical, add horizontal scorlling view
+        appGenericState.isVertical ?
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ElmSingleModuleInputWidget(appGenericState: appGenericState, widget: widget)
+        ) : 
+        ElmSingleModuleInputWidget(appGenericState: appGenericState, widget: widget)
       ],
     );
   }
@@ -491,6 +501,7 @@ class ElmSingleModuleInputWidget<T extends GenericProviderState> extends Statele
     return ConstrainedBox(
       constraints: BoxConstraints(
         minWidth: appGenericState.isVertical ? MediaQuery.of(context).size.width : 300, 
+        maxWidth: double.infinity,
         maxHeight: 200
       ),
       child: Container(
@@ -507,7 +518,7 @@ class ElmSingleModuleInputWidget<T extends GenericProviderState> extends Statele
         padding: const EdgeInsets.all(5),
         margin: const EdgeInsets.all(5),
         height: 200,
-        child: ElmDynamicModuleForm(appState: appGenericState, widget: widget, config: ProviderMainState.global["moduleJsons"][appGenericState.moduleJsonFileName]['${widget.value['module_dropdown_list']['dropdown_module_internal_name']}']),
+        child: ElmDynamicModuleForm(appState: appGenericState, widget: widget, config: ProviderMainState.global["moduleJsons"][appGenericState.moduleJsonFileName]['${widget.value['module_dropdown_list']['dropdown_module_internal_name']}'])
       ),
     );
   }
@@ -662,7 +673,7 @@ void variableTextConcatenate({
   widget.value['variables'][internal_name] = text_array!.join(text_seperator!);
 }
 
-Widget createWidgetFromConfig({required String internal_name, required Map<String, dynamic> configInput, required ElmModuleList widget, required GenericProviderState appState}) {
+Widget createWidgetFromConfig({required String internal_name, required Map<String, dynamic> configInput, required ElmModuleList widget, required GenericProviderState appState, Map<String, dynamic> listItemDetails = const {}}) {
   switch (configInput['type']) {
     case 'none':
       return NoInputWidget(
@@ -683,6 +694,7 @@ Widget createWidgetFromConfig({required String internal_name, required Map<Strin
         appState: appState,
         widget: widget,
         internal_name: internal_name,
+        listItemDetails: listItemDetails,
         display_text: configInput['display_text'],
         default_text: configInput['default_text'],
       );
@@ -701,12 +713,107 @@ Widget createWidgetFromConfig({required String internal_name, required Map<Strin
         widget: widget,
         internal_name: internal_name,
         display_text: configInput['display_text'],
+        cell_width: configInput['cell_width'],
+        cell_height: configInput['cell_height'],
+
         itemConfig: configInput['item'],
         rowConfig: configInput['axis_row'],
         colConfig: configInput['axis_col'],
       );
     default:
       return SizedBox.shrink();
+  }
+}
+
+class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
+  final T appState;
+  final ElmModuleList<T> widget;
+  final String display_text;
+  final String internal_name;
+  dynamic cell_width;  //Can be either int or double. Urggh.
+  dynamic cell_height; //Can be either int or double. Eeurgh.
+
+  final Map<String, dynamic> itemConfig;
+  final Map<String, dynamic> rowConfig;
+  final Map<String, dynamic> colConfig;
+
+  ListInputWidget({
+    required this.appState,
+    required this.widget,
+    required this.internal_name,
+    required this.display_text,
+    required this.cell_width,
+    required this.cell_height,
+
+    required this.itemConfig,
+    required this.rowConfig,
+    required this.colConfig,
+  }){
+    cell_width ??= 100;
+    cell_width = cell_width.toDouble();
+    cell_height ??= 25;
+    cell_height = cell_height.toDouble();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+
+    int columnNum = 3;
+    int rowNum = 3;
+
+    //Variable should be stored like that?
+    //Run a check to see if it's a map when reading values
+    //If so, uuhhhhhhhh
+    widget.value['variables'][internal_name] = {
+      {"value": "inputvalue", "columnNum": 0, "rowNum": 0},
+    };
+    //If no further things specified, 
+
+    return SizedBox(
+      width: cell_width! * columnNum,
+      height: cell_height! * rowNum,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.vertical,
+        child: Column(
+          children: [
+            GridView.builder(
+              physics: const NeverScrollableScrollPhysics(),
+              shrinkWrap: true,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: columnNum,
+                childAspectRatio: cell_width!/cell_height!,
+              ),
+              itemCount: rowNum * columnNum,
+              itemBuilder: (context, index) {
+                final row = index ~/ columnNum;
+                final column = index % columnNum;
+                //Add a border here (and remove the one from text). This border can't change size and has to look nice
+                return Container(
+                  decoration: BoxDecoration(
+                    color: Color.fromARGB(25, 0, 98, 255),
+                    border: Border.all(
+                      color: Color.fromARGB(255, 86, 125, 188), 
+                      width: 0.5,
+                      strokeAlign: BorderSide.strokeAlignCenter
+                    ),
+                  ),
+                  child: createWidgetFromConfig(
+                    internal_name: '${internal_name}_${row}_${column}',
+                    configInput: itemConfig, 
+                    widget: widget, 
+                    appState: appState, 
+                    listItemDetails: {
+                      'cell_width': cell_width,
+                      'cell_height': cell_height
+                    }
+                  )
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -805,6 +912,7 @@ class TextInputWidget<T extends GenericProviderState> extends StatelessWidget {
   final T appState;
   final ElmModuleList<T> widget;
   final String internal_name;
+  final Map<String, dynamic> listItemDetails;
   String? display_text;
   String? default_text;
 
@@ -812,6 +920,7 @@ class TextInputWidget<T extends GenericProviderState> extends StatelessWidget {
     required this.appState,
     required this.widget,
     required this.internal_name,
+    required this.listItemDetails,
     required this.display_text,
     required this.default_text,
   }){
@@ -834,8 +943,8 @@ class TextInputWidget<T extends GenericProviderState> extends StatelessWidget {
         Text(display_text!),
         SizedBox(
           //Width, height, minFontSize, maxLine and maxlength carefully chosen to prevent freeze
-          width: 150,
-          height: 25,
+          width: listItemDetails['cell_width']!= null ? listItemDetails['cell_width'] - 2 : 150,
+          height: listItemDetails['cell_height'] != null ? listItemDetails['cell_height'] - 2 : 25,
           child: Focus(
             onFocusChange: (isFocused) {
               ElmModuleList.updateAllModuleUI(appState: appState);
@@ -859,7 +968,7 @@ class TextInputWidget<T extends GenericProviderState> extends StatelessWidget {
               keyboardType: TextInputType.text,
               decoration: InputDecoration(
                 counterText: '',
-                //border: OutlineInputBorder(), //Use something like this for list input?
+                border: listItemDetails['cell_width'] == null ? UnderlineInputBorder() : InputBorder.none,
                 constraints: BoxConstraints(minWidth: 150, maxWidth: 150),
                 isDense: true,
                 isCollapsed: true,
@@ -911,51 +1020,6 @@ class NumberInputWidget<T extends GenericProviderState> extends StatelessWidget 
   }
 }
 
-class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
-  final T appState;
-  final ElmModuleList<T> widget;
-  final String display_text;
-  final String internal_name;
-  final Map<String, dynamic> itemConfig;
-  final Map<String, dynamic> rowConfig;
-  final Map<String, dynamic> colConfig;
-
-  ListInputWidget({
-    required this.appState,
-    required this.widget,
-    required this.internal_name,
-    required this.display_text,
-    required this.itemConfig,
-    required this.rowConfig,
-    required this.colConfig,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    List<String> rows = rowConfig['values'].keys.toList();
-    int colSize = int.tryParse(colConfig['size'].split('..').last) ?? 5;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(display_text),
-        Table(
-          children: [
-            TableRow(
-              children: List.generate(colSize, (index) {
-                return TextField(
-                  decoration: InputDecoration(
-                    hintText: itemConfig['display_text'],
-                  ),
-                );
-              }),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
 
 ///
 /// Tween used for ELM Modules
@@ -1198,11 +1262,17 @@ class ElmModuleListWidget<T extends GenericProviderState> extends StatelessWidge
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 30,
         title: Text(title),
         backgroundColor: Color.fromARGB(255, 175, 214, 249),
         foregroundColor: Color.fromARGB(169, 3, 35, 105),
         actions: [
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              padding: EdgeInsets.fromLTRB(10, 0, 10, 0),
+              minimumSize: const Size(110, 25),
+              fixedSize: const Size(110, 25),
+            ),
             onPressed: () {
               ElmModuleList.addModuleBelow(moduleIndex: -1, newValue: null, appState: appState);
             },
@@ -1211,6 +1281,8 @@ class ElmModuleListWidget<T extends GenericProviderState> extends StatelessWidge
         ],
       ),
       body: AnimatedList(
+        padding: EdgeInsets.fromLTRB(0, 0, 0, 200),
+        clipBehavior: Clip.none,
         scrollDirection: appState.isVertical ? Axis.vertical : Axis.horizontal,
         key: appState.animatedModuleListKey,
         initialItemCount: appState.elmModuleListArr.length,

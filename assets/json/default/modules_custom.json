@@ -4,23 +4,33 @@
         "display_text": "Custom Code",
         "icon": "misc_star",
         "inputs": {
-            "L_level_modules": {"type": "list", "display_text":"Level Modules:", 
-                "item": {"type": "text", "display_text":"Module"}, 
-                "axis_row": {"axis_type": "empty", "size": "2.."},
-                "axis_col": {"axis_type": "empty", "size": "2"}
+            "L_level_modules": {"type": "list", "display_text":"Level Modules:",
+                "item": {"type": "text"}, 
+                "axis_row": {"axis_type": "none", "size": "2.."},
+                "axis_col": {"axis_type": "none", "size": "2"}
             },
-            "L_wave_modules": {"type": "list", "display_text":"Wave Modules:", 
+            "#L_wave_modules": {"type": "list", "display_text":"Wave Modules:", 
                 "item": {"type": "text", "display_text":"Module"}, 
                 "axis_row": {"axis_type": "specifyvalue", "values": 
                     {"type": "number", "display_text":"Wave", "integer": true, "range": "1.."}
                 },
-                "axis_col": {"axis_type": "empty", "size": "2"}
+                "axis_col": {"axis_type": "none", "size": "2"}
             },
-            "L_raw_code": {"type": "list", "display_text":"Code:", 
+            "#L_raw_code": {"type": "list", "display_text":"Code:", 
                 "item": {"type": "text", "display_text":"Code"}, 
-                "axis_row": {"axis_type": "empty", "size": "1..", "default_size": 3},
-                "axis_col": {"axis_type": "empty", "size": "1..", "default_size": 1}
-            }
+                "axis_row": {"axis_type": "none", "size": "1..", "default_size": 3},
+                "axis_col": {"axis_type": "none", "size": "1..", "default_size": 1}
+            },
+            "test": {"type": "none", "display_text": "testy test 1"},
+            "test1": {"type": "none", "display_text": "testy test 2"},
+            "test2": {"type": "none", "display_text": "testy test 3"},
+            "test3": {"type": "none", "display_text": "testy test 4"},
+            "test4": {"type": "none", "display_text": "testy test 5"},
+            "test5": {"type": "none", "display_text": "testy test 6"},
+            "test6": {"type": "none", "display_text": "testy test 7"},
+            "test7": {"type": "none", "display_text": "testy test 8"},
+            "test8": {"type": "none", "display_text": "testy test 9"},
+            "test9": {"type": "none", "display_text": "testy test 10"}
         },
         "level_modules": ["!L_level_modules{Row: !axis_row, Type: !item}"],
         "wave_modules": [{"Wave": "!wave_number", "RTID": "!aliases"}],
@@ -39,6 +49,12 @@
             "some_more_text": {"type": "text", "display_text":"More Text:", "default_text":"second text"},
             "combined_text": {"type": "none", "display_text": "!combined_text_variable"},
 
+            "L_textList": {"type": "list", "display_text":"Some List:", "cell_width": 100, "cell_height": 25, 
+                "item": {"type": "text", "#display_text": "there is no display text! L! Don't have one here, or else stuff will break."}, 
+                "axis_row": {"axis_type": "none", "size": "2.."},
+                "axis_col": {"axis_type": "none", "size": "2"}
+            },
+
             "#add_pf": {"type": "number", "display_text":"Additional PF: ", "integer": true, "range": "0.."},
             "#checkbox": {"type": "checkbox", "display_text": "yes or no", "default_bool": true}
         },
@@ -53,7 +69,9 @@
 
             "#offset_pf_plus": {"type": "number_offset", "number": "!add_pf", "offset": 1, "range": "0.."},
             "#offset_pf_minus": {"type": "number_offset", "number": "!add_pf", "offset": 1, "range": "0.."},
-            "#checkbox_chooser": {"type": "checkbox_chooser", "true_option": "!offset_pf_plus", "false_option": "!offset_pf_minus"}
+            "#checkbox_chooser": {"type": "checkbox_chooser", "true_option": "!offset_pf_plus", "false_option": "!offset_pf_minus"},
+
+            "#concatenate_list": {"type": "text_concatenate", "text_array": "!L_textList", "text_seperator": " "}
         },
         "level_modules": ["!aliases"],
         "wave_modules": [{"Wave": "!wave_number", "RTID": "!aliases_rtid"}],
@@ -62,10 +80,16 @@
                 "aliases": [
                     "!aliases"
                 ],
-                "objclass": "SpawnZombiesJitteredWaveActionProps",
+                "objclass": "NonExistentProps",
                 "objdata": {
                     "AdditionalPlantfood": 3.1415,
-                    "Zombies": "!combined_text_variable"
+                    "SomeText": "!combined_text_variable",
+
+                    "#1": "Just a list of items",
+                    "UnnamedlistOfThings": "!L_textList",
+
+                    "#2": "A list of objects that contains item",
+                    "NamedlistOfThings": "!L_textList{Item: !item}"
                 }
             }
         ]
