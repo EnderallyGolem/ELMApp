@@ -23,34 +23,76 @@ Future loadJson({required String path}) async {
 /// [value] : Dynamic value to be set at that path
 ///
 void setNestedProperty({required dynamic obj, required List<dynamic> path, required dynamic value}) {
+  //debugPrint('setNestedProperty: obj $obj | path $path | value $value');
   dynamic current = obj;
   for (int i = 0; i < path.length; i++) {
     var key = path[i];
     if (i == path.length - 1) {
       // If it's the last key in the path, set the value
-      if (current is Map<String, dynamic>) {
+      if (current is Map<dynamic, dynamic>) {
         current[key] = value;
       } else if (current is List<dynamic> && key is int) {
         if (key >= 0 && key < current.length) {
           current[key] = value;
         } else {
-          current.insert(key, value);  // Optionally handle out-of-bounds index
+          current.insert(key, value);  // Lists: Handle out-of-bounds index
         }
       } else {
-        throw Exception('Invalid path or object type');
+        throw Exception('Invalid path or object type at the final step');
       }
     } else {
       // Traverse to the next key in the path
-      if (current is Map<String, dynamic> && current.containsKey(key)) {
+      if (current is Map<dynamic, dynamic>) {
+        if (!current.containsKey(key)) {
+          // Create a new map or list depending on the next key
+          current[key] = path[i + 1] is int ? [] : {};
+        }
         current = current[key];
-      } else if (current is List<dynamic> && key is int && key >= 0 && key < current.length) {
-        current = current[key];
+      } else if (current is List<dynamic> && key is int) {
+        if (key >= 0 && key < current.length) {
+          current = current[key];
+        } else {
+          // Expand the list to accommodate the new index
+          while (current.length <= key) {
+            dynamic addItem = path[i + 1] is int ? [] : {};
+            current.add(addItem);
+          }
+          current = current[key];
+        }
       } else {
-        throw Exception('Invalid path or object type');
+        throw Exception('Invalid path or object type during traversal');
       }
     }
   }
 }
+
+
+
+///
+/// Get value of a nested object/array/whatever.
+/// Returns the value if it exists, otherwise throws an exception.
+/// 
+/// [obj] : The object.
+/// 
+/// [path] : Array with each item being the path. Eg: ['variables', 'aliases'] or ['test', 0]
+/// 
+/// Returns the value at the specified path. Returns [invalidReturn] if path/object is invalid (null as default).
+///
+dynamic getNestedProperty({required dynamic obj, required List<dynamic> path, dynamic invalidReturn = null}) {
+  dynamic current = obj;
+  for (int i = 0; i < path.length; i++) {
+    var key = path[i];
+    if (current is Map<dynamic, dynamic> && current.containsKey(key)) {
+      current = current[key];
+    } else if (current is List<dynamic> && key is int && key >= 0 && key < current.length) {
+      current = current[key];
+    } else {
+      return invalidReturn;
+    }
+  }
+  return current;
+}
+
 
 ///
 /// Iterates through a nested list/map and runs a callback function on each individual value

@@ -49,8 +49,8 @@
             "#Note2": "No UI is shown, and the types are different and allow you to do more complicated stuff.",
             "#Note3": "You can add a quotation mark by specifying \" (a backslash before the quotation mark)",
 
-            "aliases_rtid": {"type": "text_concatenate", "text_array": ["RTID(" ,"!aliases", "@CurrentLevel)"]},
-            "combined_text_variable": {"type": "text_concatenate", "text_array": ["Combined:", "!some_text", "&", "!some_more_text"], "text_seperator": " "},
+            "aliases_rtid": {"type": "text_concatenate", "text_list": ["RTID(" ,"!aliases", "@CurrentLevel)"]},
+            "combined_text_variable": {"type": "text_concatenate", "text_list": ["Combined:", "!some_text", "&", "!some_more_text"], "text_seperator": " "},
 
             "#offset_pf_plus": {"type": "number_offset", "number": "!add_pf", "offset": 1, "range": "0.."},
             "#offset_pf_minus": {"type": "number_offset", "number": "!add_pf", "offset": 1, "range": "0.."},

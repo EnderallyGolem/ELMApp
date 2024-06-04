@@ -46,32 +46,45 @@
             "none": {"type": "none", "display_text": ":)"},
             "aliases": {"type": "aliases", "display_text":"Aliases:"},
             "some_text": {"type": "text", "display_text":"Cool Text:", "default_text":"first text"},
-            "some_more_text": {"type": "text", "display_text":"More Text:", "default_text":"second text"},
+            "#some_number": {"type": "number", "display_text":"More Text:", "default_text":"second text"},
             "combined_text": {"type": "none", "display_text": "!combined_text_variable"},
 
-            "L_textList": {"type": "list", "display_text":"Some List:", "cell_width": 100, "cell_height": 25, 
+            "L_textList": {"type": "list", "display_text":"Some List:", "cell_width": 100, "cell_height": 25, "header_width": 50, "header_height": 25,
                 "item": {"type": "text", "#display_text": "there is no display text! L! Don't have one here, or else stuff will break."}, 
                 "axis_row": {"axis_type": "none", "size": "2.."},
                 "axis_col": {"axis_type": "none", "size": "2"}
             },
 
+            "#L_text1DList": {"type": "list", "display_text":"Some List:", "cell_width": 100, "cell_height": 25, 
+                "item": {"type": "text"}, 
+                "axis_row": {"axis_type": "none", "size": "1"}, 
+                "axis_col": {"axis_type": "number", "size": "2..", "range": "..20"}
+            },
+
+            "#L_textListgrid": {"type": "list", "display_text":"Some List:", "cell_width": 100, "cell_height": 25, 
+                "item": {"type": "text"}, 
+                "axis_row": {"type": "number", "display_text":"Row", "integer": true, "range": "1..5"},
+                "axis_col": {"type": "number", "display_text":"Col", "integer": true, "range": "3.."}
+            },
+
             "#add_pf": {"type": "number", "display_text":"Additional PF: ", "integer": true, "range": "0.."},
-            "#checkbox": {"type": "checkbox", "display_text": "yes or no", "default_bool": true}
+            "#checkbox": {"type": "checkbox", "display_text": "yes or no", "default_bool": true, "true_value": true, "false_value": false}
         },
         "variables": {
-            "#Automatic Variables": "default_aliases, wave_number",
+            "#Automatic Variables": "default_aliases, wave_number[NOT ADDED, TO-DO], event_number",
             "#Note1": "You can reference other variables or inputs here. Variables will be updated until they stop changing (max 30 updates)",
             "#Note2": "No UI is shown, and the types are different and allow you to do more complicated stuff.",
             "#Note3": "You can add a quotation mark by specifying \" (a backslash before the quotation mark)",
 
-            "aliases_rtid": {"type": "text_concatenate", "text_array": ["RTID(" ,"!aliases", "@CurrentLevel)"]},
-            "combined_text_variable": {"type": "text_concatenate", "text_array": ["Combined:", "!some_text", "&", "!some_more_text"], "text_seperator": " "},
+            "aliases_rtid": {"type": "text_concatenate", "text_list": ["RTID(" ,"!aliases", "@CurrentLevel)"]},
+            "combined_text_variable": {"type": "text_concatenate", "text_list": ["Combined:", "!some_text", "&", "!some_number"], "text_seperator": " "},
 
             "#offset_pf_plus": {"type": "number_offset", "number": "!add_pf", "offset": 1, "range": "0.."},
             "#offset_pf_minus": {"type": "number_offset", "number": "!add_pf", "offset": 1, "range": "0.."},
-            "#checkbox_chooser": {"type": "checkbox_chooser", "true_option": "!offset_pf_plus", "false_option": "!offset_pf_minus"},
+            "#checkbox_chooser": {"type": "checkbox_chooser", "checkbox": "!checkbox", "true_option": "!offset_pf_plus", "false_option": "!offset_pf_minus"},
+            "#transposed_grid": {"type": "transpose", "list_to_transpose": "!L_textListgrid"},
 
-            "#concatenate_list": {"type": "text_concatenate", "text_array": "!L_textList", "text_seperator": " "}
+            "#concatenate_list": {"type": "text_concatenate", "text_list": "!L_textList", "text_seperator": " "}
         },
         "level_modules": ["!aliases"],
         "wave_modules": [{"Wave": "!wave_number", "RTID": "!aliases_rtid"}],
@@ -86,10 +99,130 @@
                     "SomeText": "!combined_text_variable",
 
                     "#1": "Just a list of items",
-                    "UnnamedlistOfThings": "!L_textList",
+                    "UnnamedlistOfThings": [
+                        "!L_textList{item}"
+                    ],
+
+                    "#1.1": "1D list of items",
+                    "Unnamed1DlistOfThings": [
+                        "!L_text1DList{item}",
+                        "!L_text1DList{axis_col}"
+                    ],
+
 
                     "#2": "A list of objects that contains item",
-                    "NamedlistOfThings": "!L_textList{Item: !item}"
+                    "NamedlistOfThings": [
+                        {
+                            "Item": "!L_textList{item}"
+                        }
+                    ],
+
+                    "#3": "A list of objects that contains item, row and column",
+                    "NamedlistOfMoreThings": [
+                        {
+                            "Item": "!L_textListgrid{item}",
+                            "Row": "!L_textListgrid{axis_row}",
+                            "Column": "!L_textListgrid{axis_col}"
+                        }
+                    ],
+
+                    "#4": "A list of objects that contains row and list of items in that row",
+                    "NamedlistOfRows": [
+                        {
+                            "Row": "!L_textListgrid{axis_row}",
+                            "Items": [
+                                "!L_textListgrid{item}"
+                            ]
+                        }
+                    ],
+
+                    "#5": "A list of objects that contains row and list of objects containing item and their column",
+                    "NamedlistOfRowsOfObject": [
+                        {
+                            "Row": "!L_textListgrid{axis_row}",
+                            "Items": [
+                                {"Item": "!L_textListgrid{item}", "Column": "!L_textListgrid{axis_column}"}
+                            ]
+                        }
+                    ],
+
+                    "#6": "A list of list (2D list, where 1st layer is row and 2nd layer is column)",
+                    "#6.1": "2D list is a special case, as all lists are directly stored like this",
+                    "ListOfListOfItemAndCol": "!L_textListgrid"
+                }
+            }
+        ]
+    },
+    "test_event2": {
+        "enabled": true,
+        "display_text": "Test Event 2",
+        "icon": "misc_lock",
+        "inputs": {
+            "none": {"type": "none", "display_text": ":)"},
+            "aliases": {"type": "aliases", "display_text":"Aliases:"},
+            "some_text": {"type": "text", "display_text":"Cool Text:", "default_text":"first text"},
+            "#some_number": {"type": "number", "display_text":"More Text:", "default_text":"second text"},
+            "combined_text": {"type": "none", "display_text": "!combined_text_variable"},
+
+            "#": "TO-DO: If no default text, by default empty values WON'T SHOW UP",
+            "L_textList": {"type": "list", "display_text":"Some List:", "cell_width": 100, "cell_height": 25, "header_width": 50, "header_height": 25,
+                "item": {"type": "text", "default_text": "nnn", "#display_text": "there is no display text! L! Don't have one here, or else stuff will break."}, 
+                "axis_row": {"axis_type": "none", "size": "2.."},
+                "axis_col": {"axis_type": "none", "size": "2"}
+            },
+
+            "#L_text1DList": {"type": "list", "display_text":"Some List:", "cell_width": 100, "cell_height": 25, 
+                "item": {"type": "text"}, 
+                "axis_row": {"axis_type": "none", "size": "1"}, 
+                "axis_col": {"axis_type": "number", "size": "2..", "range": "..20"}
+            },
+
+            "#L_textListgrid": {"type": "list", "display_text":"Some List:", "cell_width": 100, "cell_height": 25, 
+                "item": {"type": "text"}, 
+                "axis_row": {"type": "number", "display_text":"Row", "integer": true, "range": "1..5"},
+                "axis_col": {"type": "number", "display_text":"Col", "integer": true, "range": "3.."}
+            },
+
+            "#add_pf": {"type": "number", "display_text":"Additional PF: ", "integer": true, "range": "0.."},
+            "#checkbox": {"type": "checkbox", "display_text": "yes or no", "default_bool": true, "true_value": true, "false_value": false}
+        },
+        "variables": {
+            "aliases_rtid": {"type": "text_concatenate", "text_list": ["RTID(" ,"!aliases", "@CurrentLevel)"]},
+            "combined_text_variable": {"type": "text_concatenate", "text_list": ["Combined:", "!some_text", "&", "!some_number"], "text_seperator": " "},
+
+            "#offset_pf_plus": {"type": "number_offset", "number": "!add_pf", "offset": 1, "range": "0.."},
+            "#offset_pf_minus": {"type": "number_offset", "number": "!add_pf", "offset": 1, "range": "0.."},
+            "#checkbox_chooser": {"type": "checkbox_chooser", "checkbox": "!checkbox", "true_option": "!offset_pf_plus", "false_option": "!offset_pf_minus"},
+            "#transposed_grid": {"type": "transpose", "list_to_transpose": "!L_textListgrid"},
+
+            "#concatenate_list": {"type": "text_concatenate", "text_list": "!L_textList", "text_seperator": " "}
+        },
+        "level_modules": ["!aliases"],
+        "wave_modules": [{"Wave": "!wave_number", "RTID": "!aliases_rtid"}],
+        "raw_code": [
+            {
+                "aliases": [
+                    "!aliases"
+                ],
+                "objclass": "NonExistentProps",
+                "objdata": {
+                    "AdditionalPlantfood": 3.1415,
+                    "SomeText": "!combined_text_variable",
+
+                    "#1": "Just a list of items",
+                    "UnnamedlistOfThings": [
+                        "!L_textList{item}"
+                    ],
+
+                    "#1.1": "1D list of items",
+                    "Unnamed1DlistOfThings": [
+                        "!L_text1DList{item}",
+                        "!L_text1DList{axis_col}"
+                    ],
+
+                    "#6": "A list of list (2D list, where 1st layer is row and 2nd layer is column)",
+                    "#6.1": "2D list is a special case, as all lists are directly stored like this",
+                    "ListOfListOfItemAndCol": "!L_textList"
                 }
             }
         ]

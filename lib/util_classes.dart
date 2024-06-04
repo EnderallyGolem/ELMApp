@@ -121,6 +121,16 @@ class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
         'aliases': null,
         'default_aliases': '',
         'event_number': moduleIndex + 1,
+
+        //Lists should be stored like that
+        //Run a check to see if it's a map when reading values
+        //If it's a map, for variables run for every item
+        //If not, it's a single value and proceed as per normal
+        'example_list': [
+          ['r1c1', 'r1c2', 'r1c3'],
+          ['r2c1', 'r2c2', 'r2c3'],
+          ['r3c1', 'r3c2', 'r3c3']
+        ]
       }
     };
     uniqueValue ??= {
@@ -548,7 +558,10 @@ class ElmDynamicModuleForm<T extends GenericProviderState> extends StatelessWidg
     }
 
     //Update level code and export to main
+    print('DO THE EXPORTING SUTFFF');
+    print(config['raw_code']);
     widget.value['internal_data']['objects'] = variableCheckDynamic(input: config['raw_code'], widget: widget);
+    print(widget.value['internal_data']['objects']);
     widget.value['internal_data']['levelModules'] = variableCheckDynamic(input: config['level_modules'], widget: widget);
     widget.value['internal_data']['waveModules'] = variableCheckDynamic(input: config['wave_modules'], widget: widget);
     appState.updateModuleState(); //Update the module code in main! ONCE!
@@ -594,6 +607,7 @@ class ElmDynamicModuleForm<T extends GenericProviderState> extends StatelessWidg
 }
 
 void updateVariablesFromConfig({required String internal_name, required Map<String, dynamic> configVariable, required ElmModuleList widget, required GenericProviderState appState}){
+  //debugPrint('updateVariablesFromConfig: $internal_name | $configVariable');
   switch (configVariable['type']) {
     case 'text_concatenate':
       variableTextConcatenate(
@@ -601,7 +615,7 @@ void updateVariablesFromConfig({required String internal_name, required Map<Stri
         config: configVariable, 
         widget: widget, 
         appState: appState,
-        text_array: configVariable['text_array'],
+        text_list: configVariable['text_list'],
         text_seperator: configVariable['text_seperator'],
       );
       break;
@@ -630,6 +644,10 @@ dynamic variableCheckString({required dynamic input, required ElmModuleList widg
   dynamic returnValue;
   if (input.startsWith('!')){
     returnValue = widget.value['variables'][input.substring(1)];
+    print('Input: $input');
+    print('NotInput: ${widget.value['variables']}');
+    print('NotInput: ${widget.value['variables']['L_textList']}');
+    print('ReturnVal: $returnValue');
   } else {
     returnValue = input;
   }
@@ -664,22 +682,35 @@ void variableTextConcatenate({
   required Map<String, dynamic> config, 
   required ElmModuleList widget, 
   required GenericProviderState appState,
-  required List? text_array,
+  required List? text_list,
   required String? text_seperator,
 }){
-  text_array = variableCheckDynamic(input: text_array, widget: widget);
+  text_list = variableCheckDynamic(input: text_list, widget: widget);
   text_seperator = variableCheckString(input: text_seperator, widget: widget);
 
-  widget.value['variables'][internal_name] = text_array!.join(text_seperator!);
+  widget.value['variables'][internal_name] = text_list!.join(text_seperator!);
 }
 
-Widget createWidgetFromConfig({required String internal_name, required Map<String, dynamic> configInput, required ElmModuleList widget, required GenericProviderState appState, Map<String, dynamic> listItemDetails = const {}}) {
+Widget createWidgetFromConfig(
+  {
+    required String internal_name, 
+    required Map<String, dynamic> configInput, 
+    required ElmModuleList widget, 
+    required GenericProviderState appState,
+
+    //For list
+    Map<String, dynamic> listItemDetails = const {},
+    List? path = null,
+  }
+){
+  path ??= [internal_name];
   switch (configInput['type']) {
     case 'none':
       return NoInputWidget(
         appState: appState,
         widget: widget,
         internal_name: internal_name,
+        path: path,
         display_text: configInput['display_text'],
       );
     case 'aliases':
@@ -687,6 +718,7 @@ Widget createWidgetFromConfig({required String internal_name, required Map<Strin
         appState: appState,
         widget: widget,
         internal_name: internal_name,
+        path: path,
         display_text: configInput['display_text'],
       );
     case 'text':
@@ -694,18 +726,10 @@ Widget createWidgetFromConfig({required String internal_name, required Map<Strin
         appState: appState,
         widget: widget,
         internal_name: internal_name,
+        path: path,
         listItemDetails: listItemDetails,
         display_text: configInput['display_text'],
         default_text: configInput['default_text'],
-      );
-    case 'number':
-      return NumberInputWidget(
-        appState: appState,
-        widget: widget,
-        internal_name: internal_name,
-        display_text: configInput['display_text'],
-        integer: configInput['integer'],
-        range: configInput['range'],
       );
     case 'list':
       return ListInputWidget(
@@ -715,6 +739,8 @@ Widget createWidgetFromConfig({required String internal_name, required Map<Strin
         display_text: configInput['display_text'],
         cell_width: configInput['cell_width'],
         cell_height: configInput['cell_height'],
+        header_width: configInput['header_width'],
+        header_height: configInput['header_height'],
 
         itemConfig: configInput['item'],
         rowConfig: configInput['axis_row'],
@@ -732,10 +758,12 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
   final String internal_name;
   dynamic cell_width;  //Can be either int or double. Urggh.
   dynamic cell_height; //Can be either int or double. Eeurgh.
+  dynamic header_width;  //Can be either int or double. Nnngghh.
+  dynamic header_height; //Can be either int or double. Rawrrgh.
 
-  final Map<String, dynamic> itemConfig;
-  final Map<String, dynamic> rowConfig;
-  final Map<String, dynamic> colConfig;
+  Map<String, dynamic>? itemConfig;
+  Map<String, dynamic>? rowConfig;
+  Map<String, dynamic>? colConfig;
 
   ListInputWidget({
     required this.appState,
@@ -744,6 +772,8 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
     required this.display_text,
     required this.cell_width,
     required this.cell_height,
+    required this.header_width,
+    required this.header_height,
 
     required this.itemConfig,
     required this.rowConfig,
@@ -753,6 +783,14 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
     cell_width = cell_width.toDouble();
     cell_height ??= 25;
     cell_height = cell_height.toDouble();
+    header_width ??= 50;
+    header_width = header_width.toDouble();
+    header_height ??= 25;
+    header_height = header_height.toDouble();
+
+    itemConfig ??= {"type": "text"};
+    rowConfig ??= {"axis_type": "none", "size": "1"};
+    colConfig ??= {"axis_type": "none", "size": "1"};
   }
 
   @override
@@ -761,54 +799,88 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
     int columnNum = 3;
     int rowNum = 3;
 
-    //Variable should be stored like that?
-    //Run a check to see if it's a map when reading values
-    //If so, uuhhhhhhhh
-    widget.value['variables'][internal_name] = {
-      {"value": "inputvalue", "columnNum": 0, "rowNum": 0},
-    };
-    //If no further things specified, 
-
     return SizedBox(
-      width: cell_width! * columnNum,
-      height: cell_height! * rowNum,
+      width: cell_width * columnNum + header_width,
+      height: cell_height * rowNum  + header_height,
       child: SingleChildScrollView(
         scrollDirection: Axis.vertical,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            GridView.builder(
-              physics: const NeverScrollableScrollPhysics(),
-              shrinkWrap: true,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: columnNum,
-                childAspectRatio: cell_width!/cell_height!,
-              ),
-              itemCount: rowNum * columnNum,
-              itemBuilder: (context, index) {
-                final row = index ~/ columnNum;
-                final column = index % columnNum;
-                //Add a border here (and remove the one from text). This border can't change size and has to look nice
-                return Container(
-                  decoration: BoxDecoration(
-                    color: Color.fromARGB(25, 0, 98, 255),
-                    border: Border.all(
-                      color: Color.fromARGB(255, 86, 125, 188), 
-                      width: 0.5,
-                      strokeAlign: BorderSide.strokeAlignCenter
+            Row(
+              children: [
+                // Empty top-left cell
+                SizedBox(
+                  width: header_width,
+                  height: header_height
+                ),
+                //Header row
+                ...List.generate(columnNum, (colIndex) {
+                  return Container(
+                    width: cell_width,
+                    height: header_height,
+                    alignment: Alignment.center,
+                    child: Text('Col $colIndex'),
+                  );
+                }),
+              ]
+            ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                //Header Column
+                Column(
+                  children: List.generate(rowNum, (rowIndex) {
+                    return Container(
+                      width: header_width,
+                      height: cell_height,
+                      alignment: Alignment.center,
+                      child: Text('Row $rowIndex'),
+                    );
+                  }),
+                ),
+                SizedBox(
+                  width: cell_width * columnNum,
+                  height: cell_height * rowNum,
+                  child: GridView.builder(
+                    physics: const NeverScrollableScrollPhysics(),
+                    shrinkWrap: true,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: columnNum,
+                      childAspectRatio: cell_width!/cell_height!,
                     ),
+                    itemCount: rowNum * columnNum,
+                    itemBuilder: (context, index) {
+                      final row = index ~/ columnNum;
+                      final column = index % columnNum;
+                      //Add a border here (and remove the one from text). This border can't change size and has to look nice
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: Color.fromARGB(25, 0, 98, 255),
+                          border: Border.all(
+                            color: Color.fromARGB(255, 86, 125, 188), 
+                            width: 0.5,
+                            strokeAlign: BorderSide.strokeAlignCenter
+                          ),
+                        ),
+                        child: createWidgetFromConfig(
+                          //Each Internal Name: oldname_col_row
+                          //Each path: internal_name > col > row
+                          internal_name: '${internal_name}_${row}_${column}',
+                          configInput: itemConfig!, 
+                          widget: widget, 
+                          appState: appState, 
+                          listItemDetails: {
+                            'cell_width': cell_width,
+                            'cell_height': cell_height
+                          },
+                          path: [internal_name, row, column]
+                        )
+                      );
+                    },
                   ),
-                  child: createWidgetFromConfig(
-                    internal_name: '${internal_name}_${row}_${column}',
-                    configInput: itemConfig, 
-                    widget: widget, 
-                    appState: appState, 
-                    listItemDetails: {
-                      'cell_width': cell_width,
-                      'cell_height': cell_height
-                    }
-                  )
-                );
-              },
+                ),
+              ],
             ),
           ],
         ),
@@ -821,12 +893,14 @@ class NoInputWidget<T extends GenericProviderState> extends StatelessWidget {
   final T appState;
   final ElmModuleList<T> widget;
   final String internal_name;
+  final List path;
   String? display_text;
 
   NoInputWidget({
     required this.appState,
     required this.widget,
     required this.internal_name,
+    required this.path,
     required this.display_text,
   }){
     display_text = variableCheckString(input: display_text!, widget: widget);
@@ -842,12 +916,14 @@ class AliasesInputWidget<T extends GenericProviderState> extends StatelessWidget
   final T appState;
   final ElmModuleList<T> widget;
   final String internal_name;
+  final List path;
   String? display_text;
 
   AliasesInputWidget({
     required this.appState,
     required this.widget,
     required this.internal_name,
+    required this.path,
     required this.display_text,
   }){
     display_text ??= "Aliases";
@@ -877,7 +953,7 @@ class AliasesInputWidget<T extends GenericProviderState> extends StatelessWidget
             child: AutoSizeTextField(
               textAlignVertical: TextAlignVertical.bottom,
               textAlign: TextAlign.center,
-              minFontSize: 5,
+              minFontSize: 8,
               maxLines: 3,
               maxLength: 100,
               key: Key('${widget.key} aliases'),
@@ -893,7 +969,7 @@ class AliasesInputWidget<T extends GenericProviderState> extends StatelessWidget
               keyboardType: TextInputType.text,
               decoration: InputDecoration(
                 counterText: '',
-                //border: OutlineInputBorder(),
+                border: UnderlineInputBorder(),
                 constraints: BoxConstraints(minWidth: 150, maxWidth: 150),
                 isDense: true,
                 isCollapsed: true,
@@ -912,6 +988,7 @@ class TextInputWidget<T extends GenericProviderState> extends StatelessWidget {
   final T appState;
   final ElmModuleList<T> widget;
   final String internal_name;
+  final List path;
   final Map<String, dynamic> listItemDetails;
   String? display_text;
   String? default_text;
@@ -920,6 +997,7 @@ class TextInputWidget<T extends GenericProviderState> extends StatelessWidget {
     required this.appState,
     required this.widget,
     required this.internal_name,
+    required this.path,
     required this.listItemDetails,
     required this.display_text,
     required this.default_text,
@@ -930,11 +1008,20 @@ class TextInputWidget<T extends GenericProviderState> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    
     //If null controller data, set to internal data text (or empty if null)
-    widget.uniqueValue['controller_data'][internal_name] ??= widget.value['internal_data'][internal_name] == null ? TextEditingController(text: '') : TextEditingController(text: widget.value['internal_data'][internal_name]);
-    //If null internal data or null variable, set to default
-    if(widget.value['internal_data'][internal_name] == null || widget.value['variables'][internal_name] == null){
-      widget.value['variables'][internal_name] = default_text;
+    widget.uniqueValue['controller_data'][internal_name] ??= 
+    TextEditingController(
+        text: getNestedProperty(obj: widget.value['internal_data'], path: path) ?? ''
+    );
+    //If null internal data or null variables, set variable to default and internal data to blank
+    //(Internal data set is only necessary for lists)
+    if(
+      getNestedProperty(obj: widget.value['internal_data'], path: path) == null 
+      ||getNestedProperty(obj: widget.value['variables'], path: path) == null 
+    ){
+      setNestedProperty(obj: widget.value['variables'], path: path, value: default_text);
+      setNestedProperty(obj: widget.value['internal_data'], path: path, value: '');
     }
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -943,7 +1030,7 @@ class TextInputWidget<T extends GenericProviderState> extends StatelessWidget {
         Text(display_text!),
         SizedBox(
           //Width, height, minFontSize, maxLine and maxlength carefully chosen to prevent freeze
-          width: listItemDetails['cell_width']!= null ? listItemDetails['cell_width'] - 2 : 150,
+          width: listItemDetails['cell_width'] != null ? listItemDetails['cell_width'] - 2 : 150,
           height: listItemDetails['cell_height'] != null ? listItemDetails['cell_height'] - 2 : 25,
           child: Focus(
             onFocusChange: (isFocused) {
@@ -952,17 +1039,17 @@ class TextInputWidget<T extends GenericProviderState> extends StatelessWidget {
             child: AutoSizeTextField(
               textAlignVertical: TextAlignVertical.bottom,
               textAlign: TextAlign.center,
-              minFontSize: 5,
+              minFontSize: 8,
               maxLines: 3,
               maxLength: 100,
               key: Key('${widget.key} ${internal_name}'),
-              controller: widget.uniqueValue['controller_data']['${internal_name}'],
+              controller: widget.uniqueValue['controller_data'][internal_name],
               onChanged: (inputValue) {
-                widget.value['internal_data'][internal_name] = inputValue;
+                setNestedProperty(obj: widget.value['internal_data'], path: path, value: inputValue);
                 if(inputValue == ''){
-                  widget.value['variables'][internal_name] = default_text;
+                  setNestedProperty(obj: widget.value['variables'], path: path, value: default_text);
                 } else {
-                  widget.value['variables'][internal_name] = inputValue;
+                  setNestedProperty(obj: widget.value['variables'], path: path, value: inputValue);
                 }
               },
               keyboardType: TextInputType.text,
@@ -977,44 +1064,6 @@ class TextInputWidget<T extends GenericProviderState> extends StatelessWidget {
             ),
           ),
         )
-      ],
-    );
-  }
-}
-
-class NumberInputWidget<T extends GenericProviderState> extends StatelessWidget {
-  final T appState;
-  final ElmModuleList<T> widget;
-  final String internal_name;
-  String? display_text;
-  bool? integer;
-  String? range;
-
-  NumberInputWidget({
-    required this.appState,
-    required this.widget,
-    required this.internal_name,
-    required this.display_text,
-    required this.integer,
-    required this.range,
-  }){
-    display_text ??= "";
-    integer ??= false;
-    range ??= "";
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(display_text!),
-        TextField(
-          keyboardType: integer! ? TextInputType.number : TextInputType.numberWithOptions(decimal: true),
-          decoration: InputDecoration(
-            hintText: 'Enter a number ($range)',
-          ),
-        ),
       ],
     );
   }
