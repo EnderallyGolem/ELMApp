@@ -5,6 +5,9 @@ import 'package:get/get.dart';
 import 'package:double_back_to_close_app/double_back_to_close_app.dart';
 import '/util_classes.dart';
 import 'dart:convert';
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
+import 'package:flutter/services.dart';
 
 import 'pages/1_wave_page.dart';
 import 'pages/2_initial_page.dart';
@@ -67,6 +70,8 @@ class ProviderMainState extends ChangeNotifier {
 
   //Values accessible anywhere!
   static dynamic global = {
+    'isOpenWithImport': false,
+
     'moduleJsons': {},
     'waveCount': 0, //TO-DO: stuff for this. Create function to update when importing level, and when editing relevant pages.
   };
@@ -100,7 +105,7 @@ class ProviderMainState extends ChangeNotifier {
     importLevelCode();
   }
 
-  static void importLevelCode({importedCode=null}){
+  static void importLevelCode({importedCode = null}){
     importedCode ??= {'objects': [], 'levelModules': [], 'waveModules': [],};
     print('Imported Level Code: $importedCode');
     //levelCode['objects'] = importedCode['objects'];
@@ -166,7 +171,49 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+
+  //This is for nav bar
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkForFile();
+    ProviderMainState.reloadModuleJsons(); //This is not for the json stuff lol
+  }
+
+  //This is ran if the app starts.
+  //If the app is ran by open-with, import that file!
+  Future<void> _checkForFile() async {
+    try {
+      const platform = MethodChannel('com.example.elmapp/openfile');
+
+      final String? fileContent = await platform.invokeMethod('getFileContent');
+      if (fileContent != null) {
+        //This means the app opened with a json file.
+
+        //Correct the file path because it is wrong and stupid and L
+        // if (Platform.isAndroid) {
+        //   filePath = '/storage/emulated/0${filePath}'.replaceFirst("/document", "").replaceFirst("primary:", "");
+        // } else if (Platform.isIOS) {
+        //   filePath = filePath.replaceAll('/private', ''); //I didn't test this (probably won't have IOS support anyway)
+        // }
+
+        //Obtain that json file!
+        ProviderMainState.global['isOpenWithImport'] = true;
+        ProviderMiscState.importCodeWithOpen(fileContent: fileContent);
+
+        setState(() {
+        //Set page to misc page
+          _currentIndex = 6;
+        });
+      }
+    } on PlatformException catch (e) {
+      print("Failed to get file path: '${e.message}'.");
+    }
+  }
+
+  //Bottom Navigation bar stuff
 
   final List<List<dynamic>> _pages = [
     [Page_Wave(), 'page_waves'.tr],
@@ -177,12 +224,6 @@ class _MyHomePageState extends State<MyHomePage> {
     [Page_Codename(), 'page_codename'.tr],
     [Page_Misc(), 'page_misc'.tr],
   ];
-
-  @override
-  void initState(){
-    super.initState();
-    ProviderMainState.reloadModuleJsons();
-  }
 
   @override
   Widget build(BuildContext context) {
