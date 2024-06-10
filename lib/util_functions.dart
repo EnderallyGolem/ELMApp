@@ -101,9 +101,11 @@ dynamic getNestedProperty({required dynamic obj, required List<dynamic> path, dy
 /// 
 /// [function] : Function that is ran for every element with parameters [key] and [value].
 /// [value] is modified to the value that is returned.
+/// The item is deleted if [value] = null
 ///
 void iterateAndModifyNested({required dynamic nestedItem, required dynamic Function(dynamic key, dynamic value) function}) {
   if (nestedItem is Map) {
+    List keysToDelete = [];
     nestedItem.forEach((key, value) {
       if (value is Map) {
         iterateAndModifyNested(nestedItem: value, function: function);
@@ -112,23 +114,145 @@ void iterateAndModifyNested({required dynamic nestedItem, required dynamic Funct
           if (value[i] is Map || value[i] is List) {
             iterateAndModifyNested(nestedItem: value[i], function: function);
           } else {
-            value[i] = function(key, value[i]);
+            var newValue = function(key, value[i]);
+            if (newValue == null) {
+              value.removeAt(i);
+              i--; // Adjust index after removal
+            } else {
+              value[i] = newValue;
+            }
           }
         }
       } else {
-        nestedItem[key] = function(key, value);
+        var newValue = function(key, value);
+        if (newValue == null) {
+          keysToDelete.add(key);
+        } else {
+          nestedItem[key] = newValue;
+        }
       }
+    });
+    // Delete keys outside of forEach to avoid concurrent modification
+    keysToDelete.forEach((key) {
+      nestedItem.remove(key);
     });
   } else if (nestedItem is List) {
     for (int i = 0; i < nestedItem.length; i++) {
       if (nestedItem[i] is Map || nestedItem[i] is List) {
         iterateAndModifyNested(nestedItem: nestedItem[i], function: function);
       } else {
-        nestedItem[i] = function(null, nestedItem[i]);
+        var newValue = function(null, nestedItem[i]);
+        if (newValue == null) {
+          nestedItem.removeAt(i);
+          i--; // Adjust index after removal
+        } else {
+          nestedItem[i] = newValue;
+        }
       }
     }
   }
 }
+
+
+
+
+///
+/// Iterates through a nested list/map and runs a callback function on each individual value
+/// This will always iterate across higher level lists before lower level lists.
+///
+/// [nestedItem] : The nested list or map
+///
+/// [function] : Function that is ran for every element with parameters [key], [value] and [path].
+/// [value] is modified to the value that is returned.
+/// The item is deleted if [value] = null
+/// [path] is an array of keys and indexes of the value.
+///
+void iterateAndModifyNestedListOrdered({required dynamic nestedItem, List<dynamic> path = const [], required dynamic Function(dynamic key, dynamic value, List<dynamic> path) function}) {
+  if (nestedItem is Map) {
+    List keysToDelete = [];
+    Map<dynamic, dynamic> itemsToRecurse = {};
+
+    // First pass: apply function to top-level items
+    nestedItem.forEach((key, value) {
+      if (value is Map || value is List) {
+        itemsToRecurse[key] = value; // Collect nested items for recursion
+      } else {
+        var newPath = List.from(path)..add(key);
+        var newValue = function(key, value, newPath);
+        if (newValue == null) {
+          keysToDelete.add(key);
+        } else {
+          nestedItem[key] = newValue;
+        }
+      }
+    });
+
+    // Delete keys outside of forEach to avoid concurrent modification
+    keysToDelete.forEach((key) {
+      nestedItem.remove(key);
+    });
+
+    // Second pass: recurse into nested items
+    itemsToRecurse.forEach((key, value) {
+      iterateAndModifyNestedListOrdered(nestedItem: value, path: List.from(path)..add(key), function: function);
+    });
+
+  } else if (nestedItem is List) {
+    List<int> indicesToDelete = [];
+    List<MapEntry<int, dynamic>> itemsToRecurse = [];
+
+    // First pass: apply function to top-level items
+    for (int i = 0; i < nestedItem.length; i++) {
+      if (nestedItem[i] is Map || nestedItem[i] is List) {
+        itemsToRecurse.add(MapEntry(i, nestedItem[i])); // Collect nested items for recursion
+      } else {
+        var newPath = List.from(path)..add(i);
+        var newValue = function(i, nestedItem[i], newPath); // key is the index for list items
+        if (newValue == null) {
+          indicesToDelete.add(i);
+        } else {
+          nestedItem[i] = newValue;
+        }
+      }
+    }
+
+    // Delete indices in reverse order to avoid index shifting issues
+    for (int i = indicesToDelete.length - 1; i >= 0; i--) {
+      nestedItem.removeAt(indicesToDelete[i]);
+    }
+
+    // Second pass: recurse into nested items
+    for (var entry in itemsToRecurse) {
+      iterateAndModifyNestedListOrdered(nestedItem: entry.value, path: List.from(path)..add(entry.key), function: function);
+    }
+  }
+}
+
+void main() {
+  var nestedListOfRows = [
+    {
+      "Items": [
+        "!L_textListgrid{item}"
+      ],
+      "Row": "!L_textListgrid{axis_row}",
+    }
+  ];
+
+  iterateAndModifyNestedListOrdered(
+    nestedItem: nestedListOfRows,
+    function: (key, value, path) {
+      print('Key: $key, Value: $value, Path: $path');
+      // Example callback logic
+      if (value is String && value.contains('axis_row')) {
+        return null; // Example: delete this value
+      }
+      return value;
+    },
+  );
+
+  print(nestedListOfRows);
+}
+
 
 ///
 /// Deep copies some map/list madness

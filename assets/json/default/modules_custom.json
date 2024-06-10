@@ -96,7 +96,10 @@
                 "objclass": "NonExistentProps",
                 "objdata": {
                     "AdditionalPlantfood": 3.1415,
-                    "SomeText": "!combined_text_variable",
+                    "CombinedText": "!combined_text_variable",
+                    "SomeText": "!some_text",
+                    "#Note": "By default, empty values are removed. Use !! if you don't want them to ever be removed.",
+                    "SomeUnremovableText": "!!some_text",
 
                     "#1": "Just a list of items",
                     "UnnamedlistOfThings": [
@@ -161,12 +164,13 @@
             "none": {"type": "none", "display_text": ":)"},
             "aliases": {"type": "aliases", "display_text":"Aliases:"},
             "some_text": {"type": "text", "display_text":"Cool Text:", "default_text":"first text"},
+            "nullable_text": {"type": "text", "display_text":"Nullable Text:", "default_text":null},
             "#some_number": {"type": "number", "display_text":"More Text:", "default_text":"second text"},
             "combined_text": {"type": "none", "display_text": "!combined_text_variable"},
 
             "#": "TO-DO: If no default text, by default empty values WON'T SHOW UP",
             "L_textList": {"type": "list", "display_text":"Some List:", "cell_width": 100, "cell_height": 25, "header_width": 50, "header_height": 25,
-                "item": {"type": "text", "default_text": "nnn", "#display_text": "there is no display text! L! Don't have one here, or else stuff will break."}, 
+                "item": {"type": "text", "#default_text": "nnn", "#display_text": "there is no display text! L! Don't have one here, or else stuff will break."}, 
                 "axis_row": {"axis_type": "none", "size": "2.."},
                 "axis_col": {"axis_type": "none", "size": "2"}
             },
@@ -208,6 +212,11 @@
                 "objdata": {
                     "AdditionalPlantfood": 3.1415,
                     "SomeText": "!combined_text_variable",
+
+                    "#": "By default, empty values are removed. Use !! if you don't want them to be removed.",
+                    "NullableText": "!nullable_text",
+                    "UnnullableText": "!!nullable_text",
+                    
 
                     "#1": "Just a list of items",
                     "UnnamedlistOfThings": [

@@ -558,12 +558,9 @@ class ElmDynamicModuleForm<T extends GenericProviderState> extends StatelessWidg
     }
 
     //Update level code and export to main
-    print('DO THE EXPORTING SUTFFF');
-    print(config['raw_code']);
-    widget.value['internal_data']['objects'] = variableCheckDynamic(input: config['raw_code'], widget: widget);
-    print(widget.value['internal_data']['objects']);
-    widget.value['internal_data']['levelModules'] = variableCheckDynamic(input: config['level_modules'], widget: widget);
-    widget.value['internal_data']['waveModules'] = variableCheckDynamic(input: config['wave_modules'], widget: widget);
+    widget.value['internal_data']['objects'] = variableCheckDynamic(input: config['raw_code'], widget: widget, isExport: true);
+    widget.value['internal_data']['levelModules'] = variableCheckDynamic(input: config['level_modules'], widget: widget, isExport: true);
+    widget.value['internal_data']['waveModules'] = variableCheckDynamic(input: config['wave_modules'], widget: widget, isExport: true);
     appState.updateModuleState(); //Update the module code in main! ONCE!
 
     //Build the UI
@@ -630,30 +627,7 @@ void updateVariablesFromConfig({required String internal_name, required Map<Stri
   }
 }
 
-///
-/// Checks if [input] starts with a !, and if it does, returns the variable's value.
-/// Otherwise, returns itself.
-/// 
-/// If [input] is null, return empty string
-///
-dynamic variableCheckString({required dynamic input, required ElmModuleList widget}){
-  input ??= "";
-  if(!(input is String)){
-    return input; //If not string (if number maybe) then just immediately return that
-  };
-  dynamic returnValue;
-  if (input.startsWith('!')){
-    returnValue = widget.value['variables'][input.substring(1)];
-    print('Input: $input');
-    print('NotInput: ${widget.value['variables']}');
-    print('NotInput: ${widget.value['variables']['L_textList']}');
-    print('ReturnVal: $returnValue');
-  } else {
-    returnValue = input;
-  }
-  returnValue ??= "";
-  return returnValue;
-}
+int loopLimitModule = 0;
 
 ///
 /// variableCheckString except it checks all values in a nested list/map.
@@ -664,17 +638,125 @@ dynamic variableCheckString({required dynamic input, required ElmModuleList widg
 /// 
 /// The new (deep-cloned) nested list/map is returned.
 ///
-dynamic variableCheckDynamic({required dynamic input, required ElmModuleList widget}){
-  input ??= '';
+dynamic variableCheckDynamic({
+  bool isExport = false, 
+  required dynamic input, 
+  required ElmModuleList widget, 
+  int loopLimit = 10, 
+  dynamic nestedListInfo = const {}
+}){
   dynamic inputClone = deepCopy(input);
-  iterateAndModifyNested(
+
+  if(loopLimit == 10){loopLimitModule = 300;}
+
+  iterateAndModifyNestedListOrdered(
     nestedItem: inputClone,
-    function: (key, value) {
-      return variableCheckString(input: value, widget: widget);
+    function: (key, value, path) {
+      return variableCheckString(
+        isExport: isExport,
+        key: key, 
+        input: value, 
+        path: path,
+        widget: widget, 
+        loopLimit: loopLimit, 
+        nestedListInfo: nestedListInfo);
     }
   );
   inputClone ??= "";
   return inputClone;
+}
+
+///
+/// Checks if [input] starts with a !, and if it does, returns the variable's value.
+/// Otherwise, returns itself.
+/// 
+/// If [input] is null, return empty string
+/// 
+///
+dynamic variableCheckString({
+  bool isExport = false, 
+  dynamic key = null, //Could be string or int
+  required dynamic input, 
+  List? path,
+  required ElmModuleList widget, 
+  int loopLimit = 10, 
+  dynamic nestedListInfo = const {}
+}){
+  input ??= "";
+  dynamic returnValue;
+  bool canRemove = true;
+
+  loopLimitModule--;
+
+  if(input is! String || loopLimit < 1 || loopLimitModule < 1){
+    //If not string (if number maybe) then just immediately return that
+    //If loopLimit is exhausted, also immediately cut short and return
+    return input;
+  };
+
+  if (input.startsWith('!!')){
+    //If prefix is !!, it's ! but canRemove is false. (It is a variable, obtain the variable)
+    canRemove = false;
+    if (input.endsWith('}')) {
+      input = variableCheckStringListParameter(objName: input.substring(2), key: key, path: path, nestedListInfo: nestedListInfo, loopLimit: loopLimit-1);
+    } else {
+      returnValue = widget.value['variables'][input.substring(2)];
+      returnValue = variableCheckDynamic(input: returnValue, widget: widget, isExport: isExport, loopLimit: loopLimit-1, nestedListInfo: nestedListInfo);
+    }
+  } else if (input.startsWith('!')){
+    //If prefix is !, it's a variable. Obtain the variable.
+    if (input.endsWith('}')) {
+      input = variableCheckStringListParameter(objName: input.substring(1), key: key, path: path, nestedListInfo: nestedListInfo, loopLimit: loopLimit-1);
+    } else {
+      returnValue = widget.value['variables'][input.substring(1)];
+      returnValue = variableCheckDynamic(input: returnValue, widget: widget, isExport: isExport, loopLimit: loopLimit-1, nestedListInfo: nestedListInfo);
+    }
+  } else {
+    returnValue = input;
+  }
+
+  //If level code is being exported, empty returnValue means return null (delete that value)
+  if(isExport && canRemove && (returnValue == null || returnValue == "")){
+    return null;
+  } else {
+    return returnValue;
+  }
+}
+
+variableCheckStringListParameter({required String objName, required dynamic key, required List? path, dynamic nestedListInfo, int loopLimit = 10, }) {
+  print('variable check list stuff: objName $objName | key $key | path $path | nestedListInfo $nestedListInfo');
+
+  nestedListInfo ??= {
+    'parametersHaveLooped': {
+      //L_textListgrid{item}
+    },
+    'parametersLoopValue': {
+      //L_textListgrid{item} = true;
+    }
+  };
+
+  List parameterLooping = [];
+
+  if(path == null){
+    //If key is null
+    //set loop value in parametersLoopValue, add to parameterLooping, and set to true in parametersHaveLooped
+    //(item = both row and column)
+  } else {
+    //If key is not null, look at ALL items in the current list layer (including any maps in it) and list all the parameters
+    //
+    //If parameters aren't stored in nestedListInfo, store parametersHaveLooped > key > axis_row = false and axis_column = false
+    //
+    //If parameter is found and parametersHaveLooped is false in nestedListInfo, 
+    //set loop value in parametersLoopValue, add to parameterLooping, and set to true in parametersHaveLooped
+    //(item = both row and column)
+    //Else if parametersHaveLooped is true, replace it with the parametersLoopValue value.
+  }
+
+  //Iterate through all keys in parameterLooping.
+  //In each iteration, set the correct parametersLoopValue and throw it into variableCheckDynamic
+
+
+  return null;
 }
 
 void variableTextConcatenate({
