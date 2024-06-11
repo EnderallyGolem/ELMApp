@@ -144,8 +144,13 @@ class ProviderMainState extends ChangeNotifier {
         dynamic eventObj = await loadJson(path: 'assets/json/default/${filename}.json');
       
         //Turn json into map
-        eventObj.forEach((event, value) {
-          value["Image"] = Image.asset('assets/icon/moduleassets/${value["icon"]}.png', height: 20, width: 20,);
+        eventObj.forEach((event, value) async {
+          bool assetExists = await checkIfAssetExists('assets/icon/moduleassets/${value["icon"]}.png');
+          if (assetExists){
+            value["Image"] = Image.asset('assets/icon/moduleassets/${value["icon"]}.png', height: 20, width: 20,);
+          } else {
+            value["Image"] = Image.asset('assets/icon/moduleassets/misc_empty.png', height: 20, width: 20,);
+          }
         });
         ProviderMainState.global['moduleJsons'][filename] = eventObj;
       

@@ -643,13 +643,11 @@ dynamic variableCheckDynamic({
   required dynamic input, 
   required ElmModuleList widget, 
   int loopLimit = 10, 
-  dynamic nestedListInfo = const {}
+  dynamic nestedListInfo = null
 }){
   dynamic inputClone = deepCopy(input);
-
   if(loopLimit == 10){loopLimitModule = 300;}
-
-  iterateAndModifyNestedListOrdered(
+  inputClone = iterateAndModifyNestedListOrdered(
     nestedItem: inputClone,
     function: (key, value, path) {
       return variableCheckString(
@@ -657,6 +655,7 @@ dynamic variableCheckDynamic({
         key: key, 
         input: value, 
         path: path,
+        nestedItem: inputClone,
         widget: widget, 
         loopLimit: loopLimit, 
         nestedListInfo: nestedListInfo);
@@ -678,15 +677,17 @@ dynamic variableCheckString({
   dynamic key = null, //Could be string or int
   required dynamic input, 
   List? path,
+  dynamic nestedItem,
   required ElmModuleList widget, 
   int loopLimit = 10, 
-  dynamic nestedListInfo = const {}
+  dynamic nestedListInfo = null
 }){
   input ??= "";
   dynamic returnValue;
   bool canRemove = true;
 
   loopLimitModule--;
+  //debugPrint('Loop Limits: Single: $loopLimit | Module: $loopLimitModule');
 
   if(input is! String || loopLimit < 1 || loopLimitModule < 1){
     //If not string (if number maybe) then just immediately return that
@@ -698,7 +699,7 @@ dynamic variableCheckString({
     //If prefix is !!, it's ! but canRemove is false. (It is a variable, obtain the variable)
     canRemove = false;
     if (input.endsWith('}')) {
-      input = variableCheckStringListParameter(objName: input.substring(2), key: key, path: path, nestedListInfo: nestedListInfo, loopLimit: loopLimit-1);
+      returnValue = variableCheckStringListParameter(objName: input.substring(2), key: key, path: path, nestedItem: nestedItem, nestedListInfo: nestedListInfo, loopLimit: loopLimit-1);
     } else {
       returnValue = widget.value['variables'][input.substring(2)];
       returnValue = variableCheckDynamic(input: returnValue, widget: widget, isExport: isExport, loopLimit: loopLimit-1, nestedListInfo: nestedListInfo);
@@ -706,7 +707,7 @@ dynamic variableCheckString({
   } else if (input.startsWith('!')){
     //If prefix is !, it's a variable. Obtain the variable.
     if (input.endsWith('}')) {
-      input = variableCheckStringListParameter(objName: input.substring(1), key: key, path: path, nestedListInfo: nestedListInfo, loopLimit: loopLimit-1);
+      returnValue = variableCheckStringListParameter(objName: input.substring(1), key: key, path: path, nestedItem: nestedItem, nestedListInfo: nestedListInfo, loopLimit: loopLimit-1);
     } else {
       returnValue = widget.value['variables'][input.substring(1)];
       returnValue = variableCheckDynamic(input: returnValue, widget: widget, isExport: isExport, loopLimit: loopLimit-1, nestedListInfo: nestedListInfo);
@@ -723,8 +724,8 @@ dynamic variableCheckString({
   }
 }
 
-variableCheckStringListParameter({required String objName, required dynamic key, required List? path, dynamic nestedListInfo, int loopLimit = 10, }) {
-  print('variable check list stuff: objName $objName | key $key | path $path | nestedListInfo $nestedListInfo');
+variableCheckStringListParameter({required String objName, required dynamic key, required List? path, required dynamic nestedItem, dynamic nestedListInfo, int loopLimit = 10, }) {
+  debugPrint('variable check list stuff: objName $objName | key $key | path $path | nestedItem $nestedItem | nestedListInfo $nestedListInfo');
 
   nestedListInfo ??= {
     'parametersHaveLooped': {
@@ -737,26 +738,76 @@ variableCheckStringListParameter({required String objName, required dynamic key,
 
   List parameterLooping = [];
 
+  void addParameter({required String variable, required String parameter}){
+    //debugPrint('--------- variable $variable | parameter $parameter | nestedListInfo $nestedListInfo');
+    //If parameters aren't stored in parametersHaveLooped, store parametersHaveLooped > key > axis_row = false and axis_column = false
+    if(nestedListInfo['parametersHaveLooped'][variable] == null){
+      nestedListInfo['parametersHaveLooped'][variable] = {'axis_row': false, 'axis_column': false};
+    }
+
+    //If parametersHaveLooped is true in nestedListInfo (and matching parameter), replace it with the parametersLoopValue value.
+    if((parameter == "axis_row" || parameter == "item") && nestedListInfo['parametersHaveLooped'][variable]["axis_row"] == true){
+      setNestedProperty(obj: nestedItem, path: path!, value: nestedListInfo['parametersLoopValue'][variable]["axis_row"]);
+    }
+    if((parameter == "axis_column" || parameter == "item") && nestedListInfo['parametersHaveLooped'][variable]["axis_column"] == true){
+      setNestedProperty(obj: nestedItem, path: path!, value: nestedListInfo['parametersLoopValue'][variable]["axis_column"]);
+    }
+
+    //If parametersHaveLooped is false in nestedListInfo (and matching parameter), 
+    //add to parameterLooping, and set to true in parametersHaveLooped
+    if((parameter == "axis_row" || parameter == "item") && nestedListInfo['parametersHaveLooped'][variable]["axis_row"] == false){
+      parameterLooping.add([variable, 'axis_row']);
+      nestedListInfo['parametersHaveLooped'][variable]['axis_row'] == true;
+    }
+    if((parameter == "axis_column" || parameter == "item") && nestedListInfo['parametersHaveLooped'][variable]["axis_column"] == false){
+      parameterLooping.add([variable, 'axis_column']);
+      nestedListInfo['parametersHaveLooped'][variable]['axis_column'] == true;
+    }
+  }
+
   if(path == null){
     //If key is null
     //set loop value in parametersLoopValue, add to parameterLooping, and set to true in parametersHaveLooped
     //(item = both row and column)
+    String variable = objName.substring(objName.startsWith('!!') ? 2 : 1, objName.indexOf('{'));
+    String parameter = objName.substring(objName.indexOf('{') + 1, objName.indexOf('}'));
+    addParameter(variable: variable, parameter: parameter);
   } else {
-    //If key is not null, look at ALL items in the current list layer (including any maps in it) and list all the parameters
-    //
-    //If parameters aren't stored in nestedListInfo, store parametersHaveLooped > key > axis_row = false and axis_column = false
-    //
-    //If parameter is found and parametersHaveLooped is false in nestedListInfo, 
-    //set loop value in parametersLoopValue, add to parameterLooping, and set to true in parametersHaveLooped
-    //(item = both row and column)
-    //Else if parametersHaveLooped is true, replace it with the parametersLoopValue value.
+    //If key is not null
+    //look at ALL items in the current list layer (including any maps in it) and list all the parameters
+    //Reduce path until last item is before an int (lowest list)
+    for (int index = path.length - 1; index>=0; index--){
+      if(path[index] is int){
+        path.removeLast();
+        break;
+      } else {
+        path.removeLast();
+      }
+    }
+    //Now iterate across all items in this list layer only, and extract all the parameters in {}
+    //There is redundancy since all items with parameters in the same list level will check for all items
+    //But this is probably not gonna affect performance much and fixing it is too complicated! (I am lazy)
+    iterateAndModifyNestedMapAndTopList(
+      nestedItem: getNestedProperty(obj: nestedItem, path: path),
+      function: (key, value) {
+      if(value is String && value.startsWith('!') && value.endsWith('}')){
+        String variable = value.substring(value.startsWith('!!') ? 2 : 1, value.indexOf('{'));
+        String parameter = value.substring(value.indexOf('{') + 1, value.indexOf('}'));
+
+        //Add parameter to parameterLooping (and modify nestedListInfo) if possible
+        addParameter(variable: variable, parameter: parameter);
+      }
+      return value;
+      }
+    );
   }
 
+  //print('parameterLooping $parameterLooping | nestedListInfo $nestedListInfo');
   //Iterate through all keys in parameterLooping.
-  //In each iteration, set the correct parametersLoopValue and throw it into variableCheckDynamic
+  //In each iteration, set the loop value in parametersLoopValue (deep clone first!) and throw it into variableCheckDynamic
+  //Check parameterLooping for what values to set parametersLoopValue for
 
-
-  return null;
+  return ReplaceNestedList('replacement item here');
 }
 
 void variableTextConcatenate({
@@ -826,7 +877,7 @@ Widget createWidgetFromConfig(
 
         itemConfig: configInput['item'],
         rowConfig: configInput['axis_row'],
-        colConfig: configInput['axis_col'],
+        colConfig: configInput['axis_column'],
       );
     default:
       return SizedBox.shrink();
@@ -1030,7 +1081,9 @@ class AliasesInputWidget<T extends GenericProviderState> extends StatelessWidget
           height: 25,
           child: Focus(
             onFocusChange: (isFocused) {
-              ElmModuleList.updateAllModuleUI(appState: appState);
+              if (!isFocused){
+                ElmModuleList.updateAllModuleUI(appState: appState);
+              }
             },
             child: AutoSizeTextField(
               textAlignVertical: TextAlignVertical.bottom,
@@ -1116,7 +1169,9 @@ class TextInputWidget<T extends GenericProviderState> extends StatelessWidget {
           height: listItemDetails['cell_height'] != null ? listItemDetails['cell_height'] - 2 : 25,
           child: Focus(
             onFocusChange: (isFocused) {
-              ElmModuleList.updateAllModuleUI(appState: appState);
+              if (!isFocused){
+                ElmModuleList.updateAllModuleUI(appState: appState);
+              }
             },
             child: AutoSizeTextField(
               textAlignVertical: TextAlignVertical.bottom,

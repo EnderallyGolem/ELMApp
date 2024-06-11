@@ -7,19 +7,19 @@
             "L_level_modules": {"type": "list", "display_text":"Level Modules:",
                 "item": {"type": "text"}, 
                 "axis_row": {"axis_type": "none", "size": "2.."},
-                "axis_col": {"axis_type": "none", "size": "2"}
+                "axis_column": {"axis_type": "none", "size": "2"}
             },
             "#L_wave_modules": {"type": "list", "display_text":"Wave Modules:", 
                 "item": {"type": "text", "display_text":"Module"}, 
                 "axis_row": {"axis_type": "specifyvalue", "values": 
                     {"type": "number", "display_text":"Wave", "integer": true, "range": "1.."}
                 },
-                "axis_col": {"axis_type": "none", "size": "2"}
+                "axis_column": {"axis_type": "none", "size": "2"}
             },
             "#L_raw_code": {"type": "list", "display_text":"Code:", 
                 "item": {"type": "text", "display_text":"Code"}, 
                 "axis_row": {"axis_type": "none", "size": "1..", "default_size": 3},
-                "axis_col": {"axis_type": "none", "size": "1..", "default_size": 1}
+                "axis_column": {"axis_type": "none", "size": "1..", "default_size": 1}
             },
             "test": {"type": "none", "display_text": "testy test 1"},
             "test1": {"type": "none", "display_text": "testy test 2"},
@@ -52,19 +52,19 @@
             "L_textList": {"type": "list", "display_text":"Some List:", "cell_width": 100, "cell_height": 25, "header_width": 50, "header_height": 25,
                 "item": {"type": "text", "#display_text": "there is no display text! L! Don't have one here, or else stuff will break."}, 
                 "axis_row": {"axis_type": "none", "size": "2.."},
-                "axis_col": {"axis_type": "none", "size": "2"}
+                "axis_column": {"axis_type": "none", "size": "2"}
             },
 
             "#L_text1DList": {"type": "list", "display_text":"Some List:", "cell_width": 100, "cell_height": 25, 
                 "item": {"type": "text"}, 
                 "axis_row": {"axis_type": "none", "size": "1"}, 
-                "axis_col": {"axis_type": "number", "size": "2..", "range": "..20"}
+                "axis_column": {"axis_type": "number", "size": "2..", "range": "..20"}
             },
 
             "#L_textListgrid": {"type": "list", "display_text":"Some List:", "cell_width": 100, "cell_height": 25, 
                 "item": {"type": "text"}, 
                 "axis_row": {"type": "number", "display_text":"Row", "integer": true, "range": "1..5"},
-                "axis_col": {"type": "number", "display_text":"Col", "integer": true, "range": "3.."}
+                "axis_column": {"type": "number", "display_text":"Col", "integer": true, "range": "3.."}
             },
 
             "#add_pf": {"type": "number", "display_text":"Additional PF: ", "integer": true, "range": "0.."},
@@ -172,19 +172,19 @@
             "L_textList": {"type": "list", "display_text":"Some List:", "cell_width": 100, "cell_height": 25, "header_width": 50, "header_height": 25,
                 "item": {"type": "text", "#default_text": "nnn", "#display_text": "there is no display text! L! Don't have one here, or else stuff will break."}, 
                 "axis_row": {"axis_type": "none", "size": "2.."},
-                "axis_col": {"axis_type": "none", "size": "2"}
+                "axis_column": {"axis_type": "none", "size": "2"}
             },
 
             "#L_text1DList": {"type": "list", "display_text":"Some List:", "cell_width": 100, "cell_height": 25, 
                 "item": {"type": "text"}, 
                 "axis_row": {"axis_type": "none", "size": "1"}, 
-                "axis_col": {"axis_type": "number", "size": "2..", "range": "..20"}
+                "axis_column": {"axis_type": "number", "size": "2..", "range": "..20"}
             },
 
             "#L_textListgrid": {"type": "list", "display_text":"Some List:", "cell_width": 100, "cell_height": 25, 
                 "item": {"type": "text"}, 
                 "axis_row": {"type": "number", "display_text":"Row", "integer": true, "range": "1..5"},
-                "axis_col": {"type": "number", "display_text":"Col", "integer": true, "range": "3.."}
+                "axis_column": {"type": "number", "display_text":"Col", "integer": true, "range": "3.."}
             },
 
             "#add_pf": {"type": "number", "display_text":"Additional PF: ", "integer": true, "range": "0.."},
@@ -223,14 +223,57 @@
                         "!L_textList{item}"
                     ],
 
-                    "#1.1": "1D list of items",
-                    "Unnamed1DlistOfThings": [
-                        "!L_text1DList{item}",
-                        "!L_text1DList{axis_col}"
+                    "#5": "A list of objects that contains row and list of objects containing item and their column",
+                    "NamedlistOfRowsOfObject": [
+                        {
+                            "Row": "!L_textListgrid{axis_row}",
+                            "Items": [
+                                {"Item": "!!L_textListgrid{item}", "Column": "!L_textListgrid{axis_column}"}
+                            ]
+                        }
+                    ],
+
+                    "This_is_seriously_stacked!": [
+                        {
+                            "Row": "naahhhh",
+                            "Items": [
+                                {"Item": {
+                                    "Frog" : {
+                                        "like,actually": "!!L_textListgrid{item}"
+                                    }
+                                }}
+                            ]
+                        }
                     ],
 
                     "#6": "A list of list (2D list, where 1st layer is row and 2nd layer is column)",
                     "#6.1": "2D list is a special case, as all lists are directly stored like this",
+                    "ListOfListOfItemAndCol": "!L_textList"
+                }
+            }
+        ]
+    },
+    "test_event3": {
+        "enabled": true,
+        "display_text": "Test Event 3",
+        "icon": "misc_lockgold",
+        "inputs": {
+            "a": {"type": "text", "display_text":"default text", "default_text":"def"},
+            "some_text": {"type": "text", "display_text":"Some Text:", "default_text":"first text"},
+
+            "L_textList": {"type": "list", "display_text":"Some List:", "cell_width": 100, "cell_height": 25, "header_width": 50, "header_height": 25,
+                "item": {"type": "text", "#default_text": "nnn", "#display_text": "there is no display text! L! Don't have one here, or else stuff will break."}, 
+                "axis_row": {"axis_type": "none", "size": "2.."},
+                "axis_column": {"axis_type": "none", "size": "2"}
+            }
+        },
+        "variables": {},
+        "level_modules": ["!aliases"],
+        "wave_modules": [{"Wave": "!wave_number", "RTID": "!aliases_rtid"}],
+        "raw_code": [
+            {
+                "objdata": {
+                    "SomeText": "!some_text",
                     "ListOfListOfItemAndCol": "!L_textList"
                 }
             }

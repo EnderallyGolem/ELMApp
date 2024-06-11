@@ -26,7 +26,7 @@ class ProviderMiscState extends ChangeNotifier {
 
   static void getCodeShown(){
     levelCode = ProviderMainState.levelCode;
-    levelJson = jsonEncoder.convert((levelCode['objects'])); //Obviously has to be changed in the future
+    levelJson = jsonEncoder.convert(levelCode['objects']); //Obviously has to be changed in the future
   }
 
   static void importCodeWithOpen({required String fileContent}){

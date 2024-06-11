@@ -9,7 +9,7 @@
             "L_zombie_list": {"type": "list", "display_text":"Zombies:", 
                 "item": {"type": "codename_zombie", "display_text":"Zombie Typename:"}, 
                 "axis_row": {"axis_type": "setvalue", "values": {"1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "Random": null}},
-                "axis_col": {"axis_type": "none", "size": "5.."}
+                "axis_column": {"axis_type": "none", "size": "5.."}
             }
         },
         "level_modules": [],
