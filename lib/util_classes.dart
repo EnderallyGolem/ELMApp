@@ -115,6 +115,8 @@ class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
         'levelModules': [],
         'waveModules': [],
       }, 
+      //Special internal values for headers. This is to store more data while maintaining path format for lists with regular values
+      'internal_header_data': {}, 
       //Stored values that are actually used. If you typed nothing, this can be different from internal_data (uses default value instead)
       'variables': {
         'select_module_message': 'util_default_module_message'.tr,
@@ -528,7 +530,7 @@ class ElmSingleModuleInputWidget<T extends GenericProviderState> extends Statele
         padding: const EdgeInsets.all(5),
         margin: const EdgeInsets.all(5),
         height: 200,
-        child: ElmDynamicModuleForm(appState: appGenericState, widget: widget, config: ProviderMainState.global["moduleJsons"][appGenericState.moduleJsonFileName]['${widget.value['module_dropdown_list']['dropdown_module_internal_name']}'])
+        child: ElmDynamicModuleForm(appState: appGenericState, widget: widget, config: ProviderMainState.global["moduleJsons"][appGenericState.moduleJsonFileName][widget.value['module_dropdown_list']['dropdown_module_internal_name']])
       ),
     );
   }
@@ -549,7 +551,7 @@ class ElmDynamicModuleForm<T extends GenericProviderState> extends StatelessWidg
     //Create widgets for each input
     updateWidgetAndVariableInfo(formWidgets: formWidgets, loopMaxNum: loopMaxNum);
 
-    //If module is just changed, it isn't updated properly. Update it once more!
+    //If module type is just changed, it isn't updated properly. Update it once more!
     if(widget.uniqueValue['internal_data']['firstUpdate']){
       widget.uniqueValue['internal_data']['firstUpdate'] = false;
       SchedulerBinding.instance.addPostFrameCallback((_) {
@@ -699,15 +701,19 @@ dynamic variableCheckString({
     //If prefix is !!, it's ! but canRemove is false. (It is a variable, obtain the variable)
     canRemove = false;
     if (input.endsWith('}')) {
-      returnValue = variableCheckStringListParameter(objName: input.substring(2), key: key, path: path, nestedItem: nestedItem, nestedListInfo: nestedListInfo, loopLimit: loopLimit-1);
+      //If it is a list that contains some parameter, it runs SPECIAL CODE!
+      //This requires the lowest level list to be rebuilt (and reiterated)
+      returnValue = variableCheckStringListParameter(widget: widget, objName: input.substring(2), key: key, path: path, nestedItem: nestedItem, nestedListInfo: nestedListInfo, loopLimit: loopLimit-1, isExport: isExport);
     } else {
+      //Otherwise, continue iteration as per usual
       returnValue = widget.value['variables'][input.substring(2)];
+      //The return value might itself be another variable, thus iterate more! Iterate! Iterate! Iterateeeee!!!!!
       returnValue = variableCheckDynamic(input: returnValue, widget: widget, isExport: isExport, loopLimit: loopLimit-1, nestedListInfo: nestedListInfo);
     }
   } else if (input.startsWith('!')){
     //If prefix is !, it's a variable. Obtain the variable.
     if (input.endsWith('}')) {
-      returnValue = variableCheckStringListParameter(objName: input.substring(1), key: key, path: path, nestedItem: nestedItem, nestedListInfo: nestedListInfo, loopLimit: loopLimit-1);
+      returnValue = variableCheckStringListParameter(widget: widget, objName: input.substring(1), key: key, path: path, nestedItem: nestedItem, nestedListInfo: nestedListInfo, loopLimit: loopLimit-1, isExport: isExport);
     } else {
       returnValue = widget.value['variables'][input.substring(1)];
       returnValue = variableCheckDynamic(input: returnValue, widget: widget, isExport: isExport, loopLimit: loopLimit-1, nestedListInfo: nestedListInfo);
@@ -724,56 +730,61 @@ dynamic variableCheckString({
   }
 }
 
-variableCheckStringListParameter({required String objName, required dynamic key, required List? path, required dynamic nestedItem, dynamic nestedListInfo, int loopLimit = 10, }) {
-  debugPrint('variable check list stuff: objName $objName | key $key | path $path | nestedItem $nestedItem | nestedListInfo $nestedListInfo');
+//
+// FOR LISTS WITH PARAMETERS
+//
+variableCheckStringListParameter({required String objName, required dynamic key, required List? path, required dynamic nestedItem, dynamic nestedListInfo, int loopLimit = 10, required ElmModuleList widget, required bool isExport}) {
+  //debugPrint('variable check list stuff: objName $objName | key $key | path $path | nestedItem $nestedItem | nestedListInfo $nestedListInfo');
 
   nestedListInfo ??= {
     'parametersHaveLooped': {
       //L_textListgrid{item}
     },
     'parametersLoopValue': {
-      //L_textListgrid{item} = true;
+      //L_textListgrid{item} = 4;
+    },
+    'parametersLoopIndex': {
+      //L_textListgrid{item} = 1;
     }
   };
 
-  List parameterLooping = [];
+  List parametersToLoop = [
+    //[L_textListgrid, axis_column]
+  ];
 
   void addParameter({required String variable, required String parameter}){
     //debugPrint('--------- variable $variable | parameter $parameter | nestedListInfo $nestedListInfo');
     //If parameters aren't stored in parametersHaveLooped, store parametersHaveLooped > key > axis_row = false and axis_column = false
-    if(nestedListInfo['parametersHaveLooped'][variable] == null){
-      nestedListInfo['parametersHaveLooped'][variable] = {'axis_row': false, 'axis_column': false};
-    }
-
-    //If parametersHaveLooped is true in nestedListInfo (and matching parameter), replace it with the parametersLoopValue value.
-    if((parameter == "axis_row" || parameter == "item") && nestedListInfo['parametersHaveLooped'][variable]["axis_row"] == true){
-      setNestedProperty(obj: nestedItem, path: path!, value: nestedListInfo['parametersLoopValue'][variable]["axis_row"]);
-    }
-    if((parameter == "axis_column" || parameter == "item") && nestedListInfo['parametersHaveLooped'][variable]["axis_column"] == true){
-      setNestedProperty(obj: nestedItem, path: path!, value: nestedListInfo['parametersLoopValue'][variable]["axis_column"]);
+    if(nestedListInfo['parametersHaveLooped']?[variable] == null){
+      nestedListInfo['parametersHaveLooped'][variable] = <String, bool>{'axis_row': false, 'axis_column': false};
     }
 
     //If parametersHaveLooped is false in nestedListInfo (and matching parameter), 
     //add to parameterLooping, and set to true in parametersHaveLooped
     if((parameter == "axis_row" || parameter == "item") && nestedListInfo['parametersHaveLooped'][variable]["axis_row"] == false){
-      parameterLooping.add([variable, 'axis_row']);
-      nestedListInfo['parametersHaveLooped'][variable]['axis_row'] == true;
+      parametersToLoop.add([variable, 'axis_row']);
+      nestedListInfo['parametersHaveLooped'][variable]['axis_row'] = true;
     }
     if((parameter == "axis_column" || parameter == "item") && nestedListInfo['parametersHaveLooped'][variable]["axis_column"] == false){
-      parameterLooping.add([variable, 'axis_column']);
-      nestedListInfo['parametersHaveLooped'][variable]['axis_column'] == true;
+      parametersToLoop.add([variable, 'axis_column']);
+      nestedListInfo['parametersHaveLooped'][variable]['axis_column'] = true;
     }
   }
 
   if(path == null){
-    //If key is null
+    //If path is null, this simply has to return a filtered list (this shouldn't even be used)
     //set loop value in parametersLoopValue, add to parameterLooping, and set to true in parametersHaveLooped
     //(item = both row and column)
     String variable = objName.substring(objName.startsWith('!!') ? 2 : 1, objName.indexOf('{'));
     String parameter = objName.substring(objName.indexOf('{') + 1, objName.indexOf('}'));
     addParameter(variable: variable, parameter: parameter);
+
+    //MORE TO DO HERE
+
+    //return variableCheckDynamic(input: input, widget: widget);
+
   } else {
-    //If key is not null
+    //If path is not null, has to replace the lowest list with a new one.
     //look at ALL items in the current list layer (including any maps in it) and list all the parameters
     //Reduce path until last item is before an int (lowest list)
     for (int index = path.length - 1; index>=0; index--){
@@ -785,8 +796,6 @@ variableCheckStringListParameter({required String objName, required dynamic key,
       }
     }
     //Now iterate across all items in this list layer only, and extract all the parameters in {}
-    //There is redundancy since all items with parameters in the same list level will check for all items
-    //But this is probably not gonna affect performance much and fixing it is too complicated! (I am lazy)
     iterateAndModifyNestedMapAndTopList(
       nestedItem: getNestedProperty(obj: nestedItem, path: path),
       function: (key, value) {
@@ -800,14 +809,118 @@ variableCheckStringListParameter({required String objName, required dynamic key,
       return value;
       }
     );
+
+    Map<String, Map<String, List<dynamic>>> allVarValues = {};
+    parametersToLoop.forEach((value){
+      String variable = value[0];
+      String parameter = value[1];
+      if (widget.value['internal_header_data'][variable] == null) {
+        //Null only occurs on first run through when dropdown list is first selected.
+        //Code is reran when this happens, so no issues here!
+        return; //Please stop though. Though to be honest I don't think this return statement even does anything.
+      } else {
+        allVarValues[variable] ??= {};
+        allVarValues[variable]![parameter] = widget.value['internal_header_data'][variable][parameter];
+      }
+    });
+
+    List replacementList = [];
+
+    //Iterate through all items in parameterLooping.
+    multiDimensionalLoopDoubleMap(allVarValues, (combination, indices) {
+      //In each iteration, set the loop value in parametersLoopValue (deep clone first!) and throw it into variableCheckDynamic
+      Map<String, bool> markToAdd = {'axis': false, 'item': false, 'noItem': true, 'axisNoItem': false};
+      dynamic newNestedItem = deepCopy(getNestedProperty(obj: nestedItem, path: path));
+      dynamic newNestedListInfo = deepCopy(nestedListInfo);
+      iterateAndModifyNestedMapAndTopList(nestedItem: newNestedItem, function: (key, value){
+        if(value is String && value.startsWith('!') && value.endsWith('}')){
+          String variable = value.substring(value.startsWith('!!') ? 2 : 1, value.indexOf('{'));
+          String parameter = value.substring(value.indexOf('{') + 1, value.indexOf('}'));
+
+          //Make a copy of the list item here, replace the variable text with the correct value, 
+          //insert those values into parametersLoopValue, then add this into the list.
+
+          //Obtain the new value.
+          dynamic newValue;
+          if(parameter == 'axis_row' || parameter == 'axis_column'){
+            //For axis_row and axis_column, get the parameter value
+            //Variable should either be looping or have looped before. (either in parametersToLoop or parametersLoopValue)
+            newValue = combination[variable]?[parameter]; //Check parametersToLoop
+            newValue ??= newNestedListInfo?['parametersLoopValue']?[variable]?['axis_row']; //Check parametersLoopValue
+
+            setNestedProperty(obj: newNestedListInfo, path: ['parametersLoopValue', variable, parameter], value: newValue); //Using setNestedProperty to bypass any null errors lol
+            if (indices[variable]?[parameter] != null) {
+              setNestedProperty(obj: newNestedListInfo, path: ['parametersLoopIndex', variable, parameter], value: indices[variable]![parameter]);
+            }
+            
+            //If axis is not empty, axisNoItem is set to true.
+            //If there is item, only appear if column isn't empty AND !!
+            //If there is no item, appear if column isn't empty OR !!
+            int? axisIndex;
+            axisIndex = indices[variable]?[parameter]; //Check parametersToLoop
+            axisIndex ??= newNestedListInfo?['parametersLoopIndex']?[variable]?[parameter]; //Check parametersLoopValue
+
+            if(axisIndex == null){
+            } else if(parameter == 'axis_row'){
+              if(widget.value['variables'][variable]?[axisIndex].where((e) => e != "" && e != null).length > 0){markToAdd['axisNoItem'] = true;}
+            } else {
+              List<List<dynamic>> transposedVar = transpose(widget.value['variables'][variable].cast<List<dynamic>>());
+              if(transposedVar[axisIndex].where((e) => e != "" && e != null).length > 0){markToAdd['axisNoItem'] = true;}
+            }
+
+            //axis is only set to true if !! AND axisNoItem is true
+            if(value.startsWith('!!') && markToAdd['axisNoItem']!){
+              print('double !! ${value.startsWith('!!')} for $parameter');
+              markToAdd['axis'] = true;
+            }
+            //axisNoItem is also set to true if !!
+            if(value.startsWith('!!')){
+              markToAdd['axisNoItem'] = true;
+            }
+          } else {
+            //For item, both axis_row and axis_column should either be looping or have looped before. (either in parametersToLoop or parametersLoopValue)
+            //Get their indexes (not their value)
+            int? axisRowIndex, axisColumnIndex;
+            dynamic variableList = widget.value['variables'][variable]; //widget.value['variables'][variable][row][column]
+            axisRowIndex = indices[variable]?['axis_row']; //Check parametersToLoop
+            axisColumnIndex = indices[variable]?['axis_column'];
+            axisRowIndex ??= newNestedListInfo?['parametersLoopIndex']?[variable]?['axis_row']; //Check parametersLoopValue
+            axisColumnIndex ??= newNestedListInfo?['parametersLoopIndex']?[variable]?['axis_column'];
+
+            if (axisRowIndex != null && axisColumnIndex != null) { //Null occurs on first dropdown select. Ignore.
+              newValue = variableList?[axisRowIndex]?[axisColumnIndex];
+              setNestedProperty(obj: newNestedListInfo, path: ['parametersLoopIndex', variable, 'axis_column'], value: axisColumnIndex);
+              setNestedProperty(obj: newNestedListInfo, path: ['parametersLoopIndex', variable, 'axis_row'], value: axisRowIndex);
+            }
+            //If !! or not empty, should show up
+            if(value.startsWith('!!') || (newValue != "" && newValue != null)){
+              markToAdd['item'] = true;
+            }
+            markToAdd['noItem'] = false;
+          }
+          return newValue;
+        } else {
+          return value; //Not a variable
+        }
+      });
+      //Then go further down and run variableCheckDynamic for anything below with the newNestedItem.
+      print(markToAdd['axis']!);
+      print(markToAdd['item']!);
+      print(markToAdd['noItem']!);
+      print(markToAdd['axisNoItem']!);
+      print('--------------------');
+      if ( (markToAdd['axis']! || markToAdd['item']!) || (markToAdd['noItem']! && markToAdd['axisNoItem']!)) {
+        print('y');
+        newNestedItem = variableCheckDynamic(input: newNestedItem, nestedListInfo: newNestedListInfo, widget: widget, isExport: isExport, loopLimit: loopLimit);
+        //The thing returned will be ONE item in the list. Push to replacementList
+        replacementList.add(newNestedItem);
+      }
+    });
+    //Return replacementList!
+    //TO-DO REMINDER THING: path == null case has not been done.
+    print('Replacing the nested list with $replacementList');
+    return ReplaceNestedList(replacementList);
   }
-
-  //print('parameterLooping $parameterLooping | nestedListInfo $nestedListInfo');
-  //Iterate through all keys in parameterLooping.
-  //In each iteration, set the loop value in parametersLoopValue (deep clone first!) and throw it into variableCheckDynamic
-  //Check parameterLooping for what values to set parametersLoopValue for
-
-  return ReplaceNestedList('replacement item here');
 }
 
 void variableTextConcatenate({
@@ -929,8 +1042,15 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
 
-    int columnNum = 3;
+    //These 4 variables need to be obtained dynamically and be changeable. TO-DO!
     int rowNum = 3;
+    int columnNum = 3;
+
+    List rowHeaderValues = [1, 2, 3];
+    List columnHeaderValues = ["a", "b", "c"];
+
+    setNestedProperty(obj: widget.value['internal_header_data'], path: [internal_name, 'axis_row'], value: rowHeaderValues);
+    setNestedProperty(obj: widget.value['internal_header_data'], path: [internal_name, 'axis_column'], value: columnHeaderValues);
 
     return SizedBox(
       width: cell_width * columnNum + header_width,
@@ -953,7 +1073,7 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
                     width: cell_width,
                     height: header_height,
                     alignment: Alignment.center,
-                    child: Text('Col $colIndex'),
+                    child: Text('Col ${columnHeaderValues[colIndex]}'),
                   );
                 }),
               ]
@@ -968,7 +1088,7 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
                       width: header_width,
                       height: cell_height,
                       alignment: Alignment.center,
-                      child: Text('Row $rowIndex'),
+                      child: Text('Row ${rowHeaderValues[rowIndex]}'),
                     );
                   }),
                 ),
@@ -996,9 +1116,10 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
                             strokeAlign: BorderSide.strokeAlignCenter
                           ),
                         ),
+                        //Child = Each individual cell that takes in an input
                         child: createWidgetFromConfig(
-                          //Each Internal Name: oldname_col_row
-                          //Each path: internal_name > col > row
+                          //Each Internal Name: oldname_row_col
+                          //Each path: ['internal_name'][row][column]
                           internal_name: '${internal_name}_${row}_${column}',
                           configInput: itemConfig!, 
                           widget: widget, 
@@ -1007,6 +1128,7 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
                             'cell_width': cell_width,
                             'cell_height': cell_height
                           },
+                          //...['name'][0][0]
                           path: [internal_name, row, column]
                         )
                       );

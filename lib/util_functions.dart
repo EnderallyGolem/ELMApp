@@ -213,23 +213,25 @@ dynamic iterateAndModifyNestedListOrdered({
 
   } else if (nestedItem is Map) {
     List keysToDelete = [];
-    dynamic stopForEachingAndReturnThisThingAlready = null;
+    List<dynamic> mapKeys = nestedItem.keys.toList();
 
     // Apply function to top-level items
-    nestedItem.forEach((key, value) {
+    for (int j = 0; j < mapKeys.length; j++) {
+      var key = mapKeys[j];
+      var value = nestedItem[key];
       var newPath = List.from(path)..add(key);
       if (value is Map || value is List) {
         var result = iterateAndModifyNestedListOrdered(nestedItem: value, path: newPath, function: function);
         if (result is ReplaceNestedList && value is Map) {
-          //ReplaceNested found! Stop iterating and return this thing!
+          // ReplaceNested found! Stop iterating and return this thing!
           // Signal to replace the current map in its parent container
           nestedItem[key] = result.value;
-          stopForEachingAndReturnThisThingAlready = result.value;
+          return ReplaceNestedList(result.value);
         } else if (result is ReplaceNestedList) {
-          //ReplaceNested found! This is for a List though, so don't return this one.
-          //ReplaceNested will return up to this point!
+          // ReplaceNested found! This is for a List though, so don't return this one.
+          // ReplaceNested will return up to this point!
           
-          //After replacement, this requires an additional iteration.
+          // After replacement, this requires an additional iteration.
           nestedItem[key] = iterateAndModifyNestedListOrdered(nestedItem: result.value, path: newPath, function: function);
         } else {
           nestedItem[key] = result;
@@ -239,16 +241,12 @@ dynamic iterateAndModifyNestedListOrdered({
         if (newValue == null) {
           keysToDelete.add(key);
         } else if (newValue is ReplaceNestedList) {
-          //ReplaceNested found! Stop iterating and return this thing!
-          stopForEachingAndReturnThisThingAlready = newValue.value;
+          // ReplaceNested found! Stop iterating and return this thing!
+          return ReplaceNestedList(newValue.value);
         } else {
           nestedItem[key] = newValue;
         }
       }
-    });
-
-    if(stopForEachingAndReturnThisThingAlready != null){
-      return ReplaceNestedList(stopForEachingAndReturnThisThingAlready);
     }
 
     // Delete keys outside of forEach to avoid concurrent modification
@@ -329,6 +327,7 @@ void iterateAndModifyNestedMapAndTopList({required dynamic nestedItem, required 
 ///
 /// Iterates through a nested map and runs a callback function on each individual value
 /// There can be lists inside the map, but anything inside a list will NOT be iterated and will be ignored.
+/// This kind of exists just for iterateAndModifyNestedMapAndTopList not gonna lie
 /// 
 /// [nestedItem] : The nested map
 /// 
@@ -342,7 +341,7 @@ void iterateAndModifyNestedMap({required dynamic nestedItem, required dynamic Fu
     nestedItem.forEach((key, value) {
       if (value is Map) {
         iterateAndModifyNestedMap(nestedItem: value, function: function);
-      } else {
+      } else if (value is! List) {
         var newValue = function(key, value);
         if (newValue == null) {
           keysToDelete.add(key);
@@ -358,10 +357,140 @@ void iterateAndModifyNestedMap({required dynamic nestedItem, required dynamic Fu
   }
 }
 
+///
+/// Takes in a list of lists, and iterates every combination of values between each lists.
+/// 
+/// [lists] is a 2D list. For instance, [[1,2], [3,4], [5,6]] will output [1,3,5], [1,3,6], [1,4,5], ... (each of this is 1 [combination])
+/// 
+/// [callback] is the callback function. It takes in input [combination].
+/// 
+///   List<List<dynamic>> [lists] = [list1, list2, list3]
+/// 
+///   multiDimensionalLoop(lists, (combination) {
+///     print(combination.join(''));
+///   });
+///
+void multiDimensionalLoop(List<List<dynamic>> lists, Function(List<dynamic>) callback) {
+  void helper(List<dynamic> currentCombination, int depth) {
+    if (depth == lists.length) {
+      callback(currentCombination);
+      return;
+    }
+
+    for (var element in lists[depth]) {
+      var newCombination = List<dynamic>.from(currentCombination)..add(element);
+      helper(newCombination, depth + 1);
+    }
+  }
+
+  helper([], 0);
+}
 
 ///
-/// Deep copies some map/list madness
-/// [source] is the map/list/whatever
+/// Takes in a MAP of lists, and iterates every combination of values between each lists.
+/// 
+/// [map] is a map of lists. For instance, {"num1": [1,2], "num2": [3,4], "letter": ["a","b"]] will output [1,3,a], [1,3,b], [1,4,a], ...
+/// 
+/// [callback] is the callback function. It takes in input [combination].
+/// 
+///   List<List<dynamic>> [map] = {"key1": list1, "key2": list2, "key3": list3}
+/// 
+///   multiDimensionalLoop(lists, (combination) {
+///     print('${combination['key1']} is the first item in ${combination.values.join('')}')
+///   });
+///
+void multiDimensionalLoopMap(Map<String, List<dynamic>> map, Function(Map<String, dynamic>) callback) {
+  List<String> keys = map.keys.toList();
+
+  void helper(Map<String, dynamic> currentCombination, int depth) {
+    if (depth == keys.length) {
+      callback(currentCombination);
+      return;
+    }
+
+    String currentKey = keys[depth];
+    for (var element in map[currentKey]!) {
+      var newCombination = Map<String, dynamic>.from(currentCombination);
+      newCombination[currentKey] = element;
+      helper(newCombination, depth + 1);
+    }
+  }
+
+  helper({}, 0);
+}
+
+///
+/// Takes in a MAP OF MAP of lists, and iterates every combination of values between each lists.
+/// 
+/// [map] is a map of map of lists. For instance, 
+/// 
+/// [map] = {
+///     'var1': {
+///       'axis_row': [1, 2, 3, 4],
+///       'axis_column': ['a', 'b', 'c', 'd']
+///     },
+///     'var2': {
+///       'axis_row': ['a', 'b', 'c']
+///     }
+///   };
+/// 
+///   [callback] is the callback function. It takes in input [combination] and [indices].
+/// 
+///   multiDimensionalLoop(lists, (combination) {
+///     print('${combination['var1']['axis_row']} is the first item in ${combination.values.expand((innerMap) => innerMap.values).join('')}');
+///     print('${combination['var1']['axis_row']} has index ${indices['var1']['axis_row']}.');
+///   });
+///
+void multiDimensionalLoopDoubleMap(
+    Map<String, Map<String, List<dynamic>>> map,
+    Function(Map<String, Map<String, dynamic>>, Map<String, Map<String, int>>) callback) {
+  List<List<String>> combinedKeys = [];
+
+  // Collect all the keys into a list of lists
+  for (var outerKey in map.keys) {
+    var innerKeys = map[outerKey]!.keys.toList();
+    for (var innerKey in innerKeys) {
+      combinedKeys.add([outerKey, innerKey]);
+    }
+  }
+
+  void helper(
+      Map<String, Map<String, dynamic>> currentCombination,
+      Map<String, Map<String, int>> currentIndices,
+      int depth) {
+    if (depth == combinedKeys.length) {
+      callback(currentCombination, currentIndices);
+      return;
+    }
+
+    var outerKey = combinedKeys[depth][0];
+    var innerKey = combinedKeys[depth][1];
+    var currentList = map[outerKey]![innerKey]!;
+
+    for (int i = 0; i < currentList.length; i++) {
+      var element = currentList[i];
+      var newCombination = Map<String, Map<String, dynamic>>.from(currentCombination);
+      var newIndices = Map<String, Map<String, int>>.from(currentIndices);
+      if (!newCombination.containsKey(outerKey)) {
+        newCombination[outerKey] = {};
+      }
+      if (!newIndices.containsKey(outerKey)) {
+        newIndices[outerKey] = {};
+      }
+      newCombination[outerKey]![innerKey] = element;
+      newIndices[outerKey]![innerKey] = i;
+      helper(newCombination, newIndices, depth + 1);
+    }
+  }
+
+  helper({}, {}, 0);
+}
+
+
+///
+/// Deep copies a nested map/list mixture and returns the copy.
+/// 
+/// [source] is the nested map/list.
 ///
 dynamic deepCopy(dynamic source) {
   if (source is Map) {
@@ -374,6 +503,49 @@ dynamic deepCopy(dynamic source) {
     return source;
   }
 }
+
+///
+/// Gets the column of a 2D list.
+/// 
+/// [list] is the 2D list. Obviously.
+/// [columnIndex] is the column index. Obviously.
+///
+List<dynamic> getColumn({required List<List<dynamic>> list, required int columnIndex}) {
+  return list.map((row) => row[columnIndex]).toList();
+}
+
+
+///
+/// Flattens a 2D [matrix] into a 1D list.
+///
+List<dynamic> flatten(List<List<dynamic>> matrix) {
+  return matrix.expand((row) => row).toList();
+}
+
+///
+/// Tranposes a 2D list. Row and column are swapped.
+/// 
+/// [matrix] = 2D List
+/// 
+/// [[1, 2, 3], [4, 5, 6], [7, 8, 9]] is transposed into [[1, 4, 7], [2, 5, 8], [3, 6, 9]].
+///
+List<List<dynamic>> transpose(List<List<dynamic>> matrix) {
+  if (matrix.isEmpty) return [];
+
+  int numRows = matrix.length;
+  int numCols = matrix[0].length;
+
+  List<List<dynamic>> transposed = List.generate(numCols, (_) => List<dynamic>.filled(numRows, null));
+
+  for (int i = 0; i < numRows; i++) {
+    for (int j = 0; j < numCols; j++) {
+      transposed[j][i] = matrix[i][j];
+    }
+  }
+
+  return transposed;
+}
+
 
 ///
 /// Check if 2 nested list/maps are equal.

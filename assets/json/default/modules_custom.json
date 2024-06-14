@@ -84,7 +84,9 @@
             "#checkbox_chooser": {"type": "checkbox_chooser", "checkbox": "!checkbox", "true_option": "!offset_pf_plus", "false_option": "!offset_pf_minus"},
             "#transposed_grid": {"type": "transpose", "list_to_transpose": "!L_textListgrid"},
 
-            "#concatenate_list": {"type": "text_concatenate", "text_list": "!L_textList", "text_seperator": " "}
+            "#concatenate_list": {"type": "text_concatenate", "text_list": "!L_textList", "text_seperator": " "},
+
+            "#some_way_to_modify_value_of_a_list": {}
         },
         "level_modules": ["!aliases"],
         "wave_modules": [{"Wave": "!wave_number", "RTID": "!aliases_rtid"}],
@@ -98,7 +100,12 @@
                     "AdditionalPlantfood": 3.1415,
                     "CombinedText": "!combined_text_variable",
                     "SomeText": "!some_text",
-                    "#Note": "By default, empty values are removed. Use !! if you don't want them to ever be removed.",
+                    "#Note1": "By default, empty values are removed. Use !! if you don't want them to show up, even when empty.",
+                    "#Note2": "In lists, !! applies to the current list layer.",
+                    "#Note3": "Use !! for axis_row/axis_column if you want the whole row/column to show up as long as it has an item.",
+                    "#Note4": "(If the list has no item, this is the default behaviour, and !! forces it to show up all the time.)",
+                    "#Note5": "Use !! for item if you want everything to show up.",
+
                     "SomeUnremovableText": "!!some_text",
 
                     "#1": "Just a list of items",
@@ -109,7 +116,7 @@
                     "#1.1": "1D list of items",
                     "Unnamed1DlistOfThings": [
                         "!L_text1DList{item}",
-                        "!L_text1DList{axis_col}"
+                        "!L_text1DList{axis_column}"
                     ],
 
 
@@ -125,7 +132,7 @@
                         {
                             "Item": "!L_textListgrid{item}",
                             "Row": "!L_textListgrid{axis_row}",
-                            "Column": "!L_textListgrid{axis_col}"
+                            "Column": "!L_textListgrid{axis_column}"
                         }
                     ],
 
@@ -199,7 +206,9 @@
             "#checkbox_chooser": {"type": "checkbox_chooser", "checkbox": "!checkbox", "true_option": "!offset_pf_plus", "false_option": "!offset_pf_minus"},
             "#transposed_grid": {"type": "transpose", "list_to_transpose": "!L_textListgrid"},
 
-            "#concatenate_list": {"type": "text_concatenate", "text_list": "!L_textList", "text_seperator": " "}
+            "#concatenate_list": {"type": "text_concatenate", "text_list": "!L_textList", "text_seperator": " "},
+
+            "#some_way_to_modify_value_of_a_list": {}
         },
         "level_modules": ["!aliases"],
         "wave_modules": [{"Wave": "!wave_number", "RTID": "!aliases_rtid"}],
@@ -210,45 +219,23 @@
                 ],
                 "objclass": "NonExistentProps",
                 "objdata": {
-                    "AdditionalPlantfood": 3.1415,
-                    "SomeText": "!combined_text_variable",
-
-                    "#": "By default, empty values are removed. Use !! if you don't want them to be removed.",
-                    "NullableText": "!nullable_text",
-                    "UnnullableText": "!!nullable_text",
-                    
-
-                    "#1": "Just a list of items",
-                    "UnnamedlistOfThings": [
-                        "!L_textList{item}"
-                    ],
-
                     "#5": "A list of objects that contains row and list of objects containing item and their column",
                     "NamedlistOfRowsOfObject": [
                         {
-                            "Row": "!L_textListgrid{axis_row}",
+                            "Row": "!L_textList{axis_row}",
                             "Items": [
-                                {"Item": "!!L_textListgrid{item}", "Column": "!L_textListgrid{axis_column}"}
+                                {"Row": "!L_textList{axis_row}", "Column": "!L_textList{axis_column}", "Item": "!L_textList{item}"}
                             ]
                         }
                     ],
-
-                    "This_is_seriously_stacked!": [
+                    "#3": "A list of objects that contains item, row and column",
+                    "NamedlistOfMoreThings": [
                         {
-                            "Row": "naahhhh",
-                            "Items": [
-                                {"Item": {
-                                    "Frog" : {
-                                        "like,actually": "!!L_textListgrid{item}"
-                                    }
-                                }}
-                            ]
+                            "Row": "!L_textList{axis_row}",
+                            "Column": "!L_textList{axis_column}",
+                            "Item": "!L_textList{item}"
                         }
-                    ],
-
-                    "#6": "A list of list (2D list, where 1st layer is row and 2nd layer is column)",
-                    "#6.1": "2D list is a special case, as all lists are directly stored like this",
-                    "ListOfListOfItemAndCol": "!L_textList"
+                    ]
                 }
             }
         ]
