@@ -18,7 +18,12 @@ import 'util_functions.dart';
 /// [iconData] is the icon type, eg: Icons.arrow_upward
 /// [iconColor] is the icon colour, eg: Color.fromARGB(255, 58, 104, 183)
 /// [onPressFunctions] are functions to be ran when button is clicked.
+/// 
 /// Optional doubles [buttonWidth] and [buttonHeight] for width and height of buttons. Default 60, 35
+/// [borderRadius] to change how rounded the borders are. Default 14.
+/// Optional [iconSize] for icon size. Default 20.
+/// Optional [backgroundColor] for the background colour. Duh.
+/// Optional [enabled]. Button is offstage if false.
 /// 
 class ElmIconButton extends StatelessWidget {
   ElmIconButton({
@@ -28,8 +33,10 @@ class ElmIconButton extends StatelessWidget {
     required this.onPressFunctions,
     this.buttonWidth = 45,
     this.buttonHeight = 25,
+    this.borderRadius = 15,
     this.iconSize = 20,
     this.enabled = true,
+    this.backgroundColor = const Color.fromARGB(255, 245, 245, 245),
   });
 
   final IconData iconData;
@@ -37,8 +44,10 @@ class ElmIconButton extends StatelessWidget {
   final Function onPressFunctions;
   final double buttonWidth;
   final double buttonHeight;
+  final double borderRadius;
   final double iconSize;
   final bool? enabled;
+  final Color backgroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +59,9 @@ class ElmIconButton extends StatelessWidget {
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
             padding: EdgeInsets.fromLTRB(0, 0, 0, 0),
+            backgroundColor: backgroundColor,
+            alignment: Alignment.center,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(borderRadius)),
           ),
           onPressed: () {
             onPressFunctions();
@@ -664,6 +676,9 @@ dynamic variableCheckDynamic({
     }
   );
   inputClone ??= "";
+  if (inputClone is ReplaceNestedList){
+    inputClone = inputClone.value;
+  }
   return inputClone;
 }
 
@@ -700,7 +715,7 @@ dynamic variableCheckString({
   if (input.startsWith('!!')){
     //If prefix is !!, it's ! but canRemove is false. (It is a variable, obtain the variable)
     canRemove = false;
-    if (input.endsWith('}')) {
+    if (input.endsWith('}') && input.contains('{')) {
       //If it is a list that contains some parameter, it runs SPECIAL CODE!
       //This requires the lowest level list to be rebuilt (and reiterated)
       returnValue = variableCheckStringListParameter(widget: widget, objName: input.substring(2), key: key, path: path, nestedItem: nestedItem, nestedListInfo: nestedListInfo, loopLimit: loopLimit-1, isExport: isExport);
@@ -712,7 +727,7 @@ dynamic variableCheckString({
     }
   } else if (input.startsWith('!')){
     //If prefix is !, it's a variable. Obtain the variable.
-    if (input.endsWith('}')) {
+    if (input.endsWith('}') && input.contains('{')) {
       returnValue = variableCheckStringListParameter(widget: widget, objName: input.substring(1), key: key, path: path, nestedItem: nestedItem, nestedListInfo: nestedListInfo, loopLimit: loopLimit-1, isExport: isExport);
     } else {
       returnValue = widget.value['variables'][input.substring(1)];
@@ -772,6 +787,7 @@ variableCheckStringListParameter({required String objName, required dynamic key,
   }
 
   if(path == null){
+    debugPrint('variableCheckStringListParameter: path == null. Does this ever run? I dont think this ever runs. If it does though, I have to actually make it work xd');
     //If path is null, this simply has to return a filtered list (this shouldn't even be used)
     //set loop value in parametersLoopValue, add to parameterLooping, and set to true in parametersHaveLooped
     //(item = both row and column)
@@ -779,9 +795,18 @@ variableCheckStringListParameter({required String objName, required dynamic key,
     String parameter = objName.substring(objName.indexOf('{') + 1, objName.indexOf('}'));
     addParameter(variable: variable, parameter: parameter);
 
-    //MORE TO DO HERE
+    dynamic returnItem;
 
-    //return variableCheckDynamic(input: input, widget: widget);
+    //Extract the filtered item to return
+    if(parameter == "axis_row" || parameter == "axis_column"){
+      //Return row/col headers
+      returnItem = widget.value['internal_header_data'][variable][parameter];
+    } else {
+      //Return flattened ver of list
+      returnItem = flatten(widget.value['variables'][variable]);
+    }
+
+    return variableCheckDynamic(input: returnItem, widget: widget);
 
   } else {
     //If path is not null, has to replace the lowest list with a new one.
@@ -799,7 +824,7 @@ variableCheckStringListParameter({required String objName, required dynamic key,
     iterateAndModifyNestedMapAndTopList(
       nestedItem: getNestedProperty(obj: nestedItem, path: path),
       function: (key, value) {
-      if(value is String && value.startsWith('!') && value.endsWith('}')){
+      if(value is String && value.startsWith('!') && value.endsWith('}') && value.contains('{')){
         String variable = value.substring(value.startsWith('!!') ? 2 : 1, value.indexOf('{'));
         String parameter = value.substring(value.indexOf('{') + 1, value.indexOf('}'));
 
@@ -810,7 +835,7 @@ variableCheckStringListParameter({required String objName, required dynamic key,
       }
     );
 
-    Map<String, Map<String, List<dynamic>>> allVarValues = {};
+    Map<String, Map<String, List<dynamic>>> allVarValues = {}; //For each parameter in parametersToLoop, get all possible values
     parametersToLoop.forEach((value){
       String variable = value[0];
       String parameter = value[1];
@@ -827,99 +852,143 @@ variableCheckStringListParameter({required String objName, required dynamic key,
     List replacementList = [];
 
     //Iterate through all items in parameterLooping.
-    multiDimensionalLoopDoubleMap(allVarValues, (combination, indices) {
-      //In each iteration, set the loop value in parametersLoopValue (deep clone first!) and throw it into variableCheckDynamic
-      Map<String, bool> markToAdd = {'axis': false, 'item': false, 'noItem': true, 'axisNoItem': false};
+    if (allVarValues.isNotEmpty) {
+      multiDimensionalLoopDoubleMap(allVarValues, (combination, indices) {
+        //In each iteration, set the loop value in parametersLoopValue (deep clone first!) and throw it into variableCheckDynamic
+        Map<String, bool> markToAdd = {'axis': false, 'item': false, 'noItem': true, 'axisNoItem': false};
+        dynamic newNestedItem = deepCopy(getNestedProperty(obj: nestedItem, path: path));
+        dynamic newNestedListInfo = deepCopy(nestedListInfo);
+        iterateAndModifyNestedMapAndTopList(nestedItem: newNestedItem, function: (key, value){
+          if(value is String && value.startsWith('!') && value.endsWith('}') && value.contains('{')){
+            String variable = value.substring(value.startsWith('!!') ? 2 : 1, value.indexOf('{'));
+            String parameter = value.substring(value.indexOf('{') + 1, value.indexOf('}'));
+      
+            //Make a copy of the list item here, replace the variable text with the correct value, 
+            //insert those values into parametersLoopValue, then add this into the list.
+      
+            //Obtain the new value.
+            dynamic newValue;
+            if(parameter == 'axis_row' || parameter == 'axis_column'){
+              //For axis_row and axis_column, get the parameter value
+              //Variable should either be looping or have looped before. (either in parametersToLoop or parametersLoopValue)
+              newValue = combination[variable]?[parameter]; //Check parametersToLoop
+              newValue ??= newNestedListInfo?['parametersLoopValue']?[variable]?['axis_row']; //Check parametersLoopValue
+      
+              setNestedProperty(obj: newNestedListInfo, path: ['parametersLoopValue', variable, parameter], value: newValue); //Using setNestedProperty to bypass any null errors lol
+              if (indices[variable]?[parameter] != null) {
+                setNestedProperty(obj: newNestedListInfo, path: ['parametersLoopIndex', variable, parameter], value: indices[variable]![parameter]);
+              }
+              
+              //If axis is not empty, axisNoItem is set to true.
+              //If there is item, only appear if column isn't empty AND !!
+              //If there is no item, appear if column isn't empty OR !!
+              int? axisIndex;
+              axisIndex = indices[variable]?[parameter]; //Check parametersToLoop
+              axisIndex ??= newNestedListInfo?['parametersLoopIndex']?[variable]?[parameter]; //Check parametersLoopValue
+      
+              if(axisIndex == null){
+              } else if(parameter == 'axis_row'){
+                if(widget.value['variables'][variable]?[axisIndex].where((e) => e != "" && e != null).length > 0){
+                  markToAdd['axisNoItem'] = true; //Sets axisNoItem to true regardless of !!
+                  if(value.startsWith('!!')){markToAdd['axis'] = true;} //Sets axis to true ONLY IF !!
+                }
+              } else {
+                List<List<dynamic>> transposedVar = transpose(widget.value['variables'][variable].cast<List<dynamic>>());
+                if(transposedVar[axisIndex].where((e) => e != "" && e != null).length > 0){
+                  markToAdd['axisNoItem'] = true; //Sets axisNoItem to true regardless of !!
+                  if(value.startsWith('!!')){markToAdd['axis'] = true;} //Sets axis to true ONLY IF !!
+                }
+              }
+      
+              //axisNoItem is also set to true if !!
+              if(value.startsWith('!!')){
+                markToAdd['axisNoItem'] = true;
+              }
+            } else {
+              //For item, both axis_row and axis_column should either be looping or have looped before. (either in parametersToLoop or parametersLoopValue)
+              //Get their indexes (not their value)
+              int? axisRowIndex, axisColumnIndex;
+              dynamic variableList = widget.value['variables'][variable]; //widget.value['variables'][variable][row][column]
+              print('!!!! $variableList');
+              axisRowIndex = indices[variable]?['axis_row']; //Check parametersToLoop
+              axisColumnIndex = indices[variable]?['axis_column'];
+              axisRowIndex ??= newNestedListInfo?['parametersLoopIndex']?[variable]?['axis_row']; //Check parametersLoopValue
+              axisColumnIndex ??= newNestedListInfo?['parametersLoopIndex']?[variable]?['axis_column'];
+
+              print('rowIndex $axisRowIndex | colIndex $axisColumnIndex');
+      
+              if (axisRowIndex != null && axisColumnIndex != null) { //Null occurs on first dropdown select. Ignore.
+                newValue = variableList?[axisRowIndex]?[axisColumnIndex];
+                setNestedProperty(obj: newNestedListInfo, path: ['parametersLoopIndex', variable, 'axis_column'], value: axisColumnIndex);
+                setNestedProperty(obj: newNestedListInfo, path: ['parametersLoopIndex', variable, 'axis_row'], value: axisRowIndex);
+              }
+              //If !! or not empty, should show up
+              if(value.startsWith('!!') || (newValue != "" && newValue != null)){
+                markToAdd['item'] = true;
+              }
+              markToAdd['noItem'] = false;
+            }
+            return newValue;
+          } else {
+            return value; //Not a variable
+          }
+        });
+        //Then go further down and run variableCheckDynamic for anything below with the newNestedItem.
+        if ( (markToAdd['axis']! || markToAdd['item']!) || (markToAdd['noItem']! && markToAdd['axisNoItem']!)) {
+          newNestedItem = variableCheckDynamic(input: newNestedItem, nestedListInfo: newNestedListInfo, widget: widget, isExport: isExport, loopLimit: loopLimit);
+          if (newNestedItem is ReplaceNestedList){
+            newNestedItem = newNestedItem.value;
+          }
+          //The thing returned will be ONE item in the list. Push to replacementList
+          replacementList = [...replacementList, ...newNestedItem];
+        }
+      });
+    } else {
+      //If allVarValues is empty (because parametersToLoop is empty), iterate across values once to set values from parametersLoopValue
       dynamic newNestedItem = deepCopy(getNestedProperty(obj: nestedItem, path: path));
       dynamic newNestedListInfo = deepCopy(nestedListInfo);
-      iterateAndModifyNestedMapAndTopList(nestedItem: newNestedItem, function: (key, value){
+      iterateAndModifyNestedMapAndTopList(
+        nestedItem: newNestedItem,
+        function: (key, value) {
         if(value is String && value.startsWith('!') && value.endsWith('}')){
           String variable = value.substring(value.startsWith('!!') ? 2 : 1, value.indexOf('{'));
           String parameter = value.substring(value.indexOf('{') + 1, value.indexOf('}'));
 
-          //Make a copy of the list item here, replace the variable text with the correct value, 
-          //insert those values into parametersLoopValue, then add this into the list.
-
-          //Obtain the new value.
+          //Add parameter to parameterLooping (and modify nestedListInfo) if possible
           dynamic newValue;
           if(parameter == 'axis_row' || parameter == 'axis_column'){
-            //For axis_row and axis_column, get the parameter value
-            //Variable should either be looping or have looped before. (either in parametersToLoop or parametersLoopValue)
-            newValue = combination[variable]?[parameter]; //Check parametersToLoop
-            newValue ??= newNestedListInfo?['parametersLoopValue']?[variable]?['axis_row']; //Check parametersLoopValue
-
-            setNestedProperty(obj: newNestedListInfo, path: ['parametersLoopValue', variable, parameter], value: newValue); //Using setNestedProperty to bypass any null errors lol
-            if (indices[variable]?[parameter] != null) {
-              setNestedProperty(obj: newNestedListInfo, path: ['parametersLoopIndex', variable, parameter], value: indices[variable]![parameter]);
-            }
-            
-            //If axis is not empty, axisNoItem is set to true.
-            //If there is item, only appear if column isn't empty AND !!
-            //If there is no item, appear if column isn't empty OR !!
-            int? axisIndex;
-            axisIndex = indices[variable]?[parameter]; //Check parametersToLoop
-            axisIndex ??= newNestedListInfo?['parametersLoopIndex']?[variable]?[parameter]; //Check parametersLoopValue
-
-            if(axisIndex == null){
-            } else if(parameter == 'axis_row'){
-              if(widget.value['variables'][variable]?[axisIndex].where((e) => e != "" && e != null).length > 0){markToAdd['axisNoItem'] = true;}
-            } else {
-              List<List<dynamic>> transposedVar = transpose(widget.value['variables'][variable].cast<List<dynamic>>());
-              if(transposedVar[axisIndex].where((e) => e != "" && e != null).length > 0){markToAdd['axisNoItem'] = true;}
-            }
-
-            //axis is only set to true if !! AND axisNoItem is true
-            if(value.startsWith('!!') && markToAdd['axisNoItem']!){
-              print('double !! ${value.startsWith('!!')} for $parameter');
-              markToAdd['axis'] = true;
-            }
-            //axisNoItem is also set to true if !!
-            if(value.startsWith('!!')){
-              markToAdd['axisNoItem'] = true;
-            }
-          } else {
-            //For item, both axis_row and axis_column should either be looping or have looped before. (either in parametersToLoop or parametersLoopValue)
-            //Get their indexes (not their value)
-            int? axisRowIndex, axisColumnIndex;
-            dynamic variableList = widget.value['variables'][variable]; //widget.value['variables'][variable][row][column]
-            axisRowIndex = indices[variable]?['axis_row']; //Check parametersToLoop
-            axisColumnIndex = indices[variable]?['axis_column'];
-            axisRowIndex ??= newNestedListInfo?['parametersLoopIndex']?[variable]?['axis_row']; //Check parametersLoopValue
-            axisColumnIndex ??= newNestedListInfo?['parametersLoopIndex']?[variable]?['axis_column'];
-
+            newValue ??= nestedListInfo?['parametersLoopValue']?[variable]?[parameter];
+          } else if (parameter == 'item'){
+            int? axisRowIndex = nestedListInfo?['parametersLoopIndex']?[variable]?['axis_row']; //Check parametersLoopValue
+            int? axisColumnIndex = nestedListInfo?['parametersLoopIndex']?[variable]?['axis_column'];
+            dynamic variableList = widget.value['variables'][variable];
             if (axisRowIndex != null && axisColumnIndex != null) { //Null occurs on first dropdown select. Ignore.
               newValue = variableList?[axisRowIndex]?[axisColumnIndex];
-              setNestedProperty(obj: newNestedListInfo, path: ['parametersLoopIndex', variable, 'axis_column'], value: axisColumnIndex);
-              setNestedProperty(obj: newNestedListInfo, path: ['parametersLoopIndex', variable, 'axis_row'], value: axisRowIndex);
+              setNestedProperty(obj: nestedListInfo, path: ['parametersLoopIndex', variable, 'axis_column'], value: axisColumnIndex);
+              setNestedProperty(obj: nestedListInfo, path: ['parametersLoopIndex', variable, 'axis_row'], value: axisRowIndex);
             }
-            //If !! or not empty, should show up
-            if(value.startsWith('!!') || (newValue != "" && newValue != null)){
-              markToAdd['item'] = true;
-            }
-            markToAdd['noItem'] = false;
           }
           return newValue;
-        } else {
-          return value; //Not a variable
         }
-      });
-      //Then go further down and run variableCheckDynamic for anything below with the newNestedItem.
-      print(markToAdd['axis']!);
-      print(markToAdd['item']!);
-      print(markToAdd['noItem']!);
-      print(markToAdd['axisNoItem']!);
-      print('--------------------');
-      if ( (markToAdd['axis']! || markToAdd['item']!) || (markToAdd['noItem']! && markToAdd['axisNoItem']!)) {
-        print('y');
-        newNestedItem = variableCheckDynamic(input: newNestedItem, nestedListInfo: newNestedListInfo, widget: widget, isExport: isExport, loopLimit: loopLimit);
-        //The thing returned will be ONE item in the list. Push to replacementList
-        replacementList.add(newNestedItem);
+        return value;
+        }
+      );
+      newNestedItem = variableCheckDynamic(input: newNestedItem, nestedListInfo: newNestedListInfo, widget: widget, isExport: isExport, loopLimit: loopLimit);
+      if (newNestedItem is ReplaceNestedList && newNestedItem.value is List<dynamic>){
+        replacementList = newNestedItem.value;
+      } else if (newNestedItem is List<dynamic>) {
+        replacementList = newNestedItem;
       }
-    });
+    }
     //Return replacementList!
-    //TO-DO REMINDER THING: path == null case has not been done.
-    print('Replacing the nested list with $replacementList');
-    return ReplaceNestedList(replacementList);
+    if(replacementList.isEmpty && loopLimit > 0){
+      return ReplaceNestedList([]);
+    } else if(loopLimit <= 0){
+      //Force return nothing if null. This prevents a ReplaceNestedList from being returned when there shouldn't be one.
+      return null;
+    } else {
+      return ReplaceNestedList(replacementList);
+    }
   }
 }
 
@@ -990,7 +1059,7 @@ Widget createWidgetFromConfig(
 
         itemConfig: configInput['item'],
         rowConfig: configInput['axis_row'],
-        colConfig: configInput['axis_column'],
+        columnConfig: configInput['axis_column'],
       );
     default:
       return SizedBox.shrink();
@@ -1000,7 +1069,7 @@ Widget createWidgetFromConfig(
 class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
   final T appState;
   final ElmModuleList<T> widget;
-  final String display_text;
+  String? display_text;
   final String internal_name;
   dynamic cell_width;  //Can be either int or double. Urggh.
   dynamic cell_height; //Can be either int or double. Eeurgh.
@@ -1009,7 +1078,7 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
 
   Map<String, dynamic>? itemConfig;
   Map<String, dynamic>? rowConfig;
-  Map<String, dynamic>? colConfig;
+  Map<String, dynamic>? columnConfig;
 
   ListInputWidget({
     required this.appState,
@@ -1023,7 +1092,7 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
 
     required this.itemConfig,
     required this.rowConfig,
-    required this.colConfig,
+    required this.columnConfig,
   }){
     cell_width ??= 100;
     cell_width = cell_width.toDouble();
@@ -1034,27 +1103,69 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
     header_height ??= 25;
     header_height = header_height.toDouble();
 
+    display_text = variableCheckString(input: display_text, widget: widget);
     itemConfig ??= {"type": "text"};
-    rowConfig ??= {"axis_type": "none", "size": "1"};
-    colConfig ??= {"axis_type": "none", "size": "1"};
+    rowConfig ??= {"axis_type": "none", "default_size": "2", "size_range": "2..5"};
+    columnConfig ??= {"axis_type": "none", "default_size": "2", "size_range": "2..5"};
   }
 
   @override
   Widget build(BuildContext context) {
 
-    //These 4 variables need to be obtained dynamically and be changeable. TO-DO!
-    int rowNum = 3;
-    int columnNum = 3;
+    int? rowNum = null, columnNum = null, rowMinSize = null, rowMaxSize = null, rowInitialSize = null, columnMinSize = null, columnMaxSize = null, columnInitialSize = null;
+    List rowHeaderValues = [], rowHeaderValuesDisplay = [], columnHeaderValues = [], columnHeaderValuesDisplay = [];
 
-    List rowHeaderValues = [1, 2, 3];
-    List columnHeaderValues = ["a", "b", "c"];
+    rowNum = widget.value?['internal_header_data']?[internal_name]?['rowNum'];
+    columnNum = widget.value?['internal_header_data']?[internal_name]?['columnNum'];
 
-    setNestedProperty(obj: widget.value['internal_header_data'], path: [internal_name, 'axis_row'], value: rowHeaderValues);
-    setNestedProperty(obj: widget.value['internal_header_data'], path: [internal_name, 'axis_column'], value: columnHeaderValues);
+    //Obtain and set information on axis_row and axis_column. Info on (each) item obtained when building table.
+    rowConfig!['axis_type'] ??= "none";
+    columnConfig!['axis_type'] ??= "none";
+    [rowMinSize, rowMaxSize, rowInitialSize] = convertRange(stringRange: rowConfig!['size_range'], inputClamp: rowConfig!['size_default'], minLower: 1, maxUpper: 100, defaultLower: 2, defaultUpper: 5);
+    [columnMinSize, columnMaxSize, columnInitialSize] = convertRange(stringRange: columnConfig!['size_range'], inputClamp: columnConfig!['size_default'], minLower: 1, maxUpper: 100, defaultLower: 2, defaultUpper: 10);
+
+    //Only ran the first time in order to obtain initial values
+    rowNum ??= rowInitialSize;
+    columnNum ??= columnInitialSize;
+
+    void updateHeaderData(List<dynamic> rowHeaderValues, int rowNum, List<dynamic> columnHeaderValues, int columnNum) {
+    rowHeaderValues = [];
+    rowHeaderValuesDisplay = [];
+    columnHeaderValues = [];
+    columnHeaderValuesDisplay = [];
+      switch (rowConfig!['axis_type']) {
+        case 'number':
+          //TO-DO
+          break;
+        default: //None
+        for(int index = 0; index < rowNum; index++){
+          rowHeaderValues.add(index+1);
+          rowHeaderValuesDisplay.add('show row $index');
+        }
+      }
+      switch (columnConfig!['axis_type']) {
+        case 'number':
+          //TO-DO
+          break;
+        default: //None
+        for(int index = 0; index < columnNum; index++){
+          columnHeaderValues.add(index+1);
+          columnHeaderValuesDisplay.add('show col $index');
+        }
+      }
+      setNestedProperty(obj: widget.value['internal_header_data'], path: [internal_name, 'axis_row'], value: rowHeaderValues);
+      setNestedProperty(obj: widget.value['internal_header_data'], path: [internal_name, 'rowNum'], value: rowNum);
+      setNestedProperty(obj: widget.value['internal_header_data'], path: [internal_name, 'axis_column'], value: columnHeaderValues);
+      setNestedProperty(obj: widget.value['internal_header_data'], path: [internal_name, 'columnNum'], value: columnNum);
+      print('order 1');
+    }
+    updateHeaderData(rowHeaderValues, rowNum, columnHeaderValues, columnNum);
+
+    const double deleteButtonSize = 18;
 
     return SizedBox(
-      width: cell_width * columnNum + header_width,
-      height: cell_height * rowNum  + header_height,
+      width: cell_width * columnNum + header_width + deleteButtonSize,
+      height: cell_height * rowNum  + header_height + deleteButtonSize,
       child: SingleChildScrollView(
         scrollDirection: Axis.vertical,
         child: Column(
@@ -1062,10 +1173,12 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
           children: [
             Row(
               children: [
-                // Empty top-left cell
-                SizedBox(
+                // top-left cell
+                Container(
                   width: header_width,
-                  height: header_height
+                  height: header_height,
+                  alignment: Alignment.center,
+                  child: AutoSizeText(display_text!, maxFontSize: 12, minFontSize: 5,)
                 ),
                 //Header row
                 ...List.generate(columnNum, (colIndex) {
@@ -1073,9 +1186,30 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
                     width: cell_width,
                     height: header_height,
                     alignment: Alignment.center,
-                    child: Text('Col ${columnHeaderValues[colIndex]}'),
+                    child: AutoSizeText(columnHeaderValuesDisplay[colIndex], maxFontSize: 12, minFontSize: 5,),
                   );
                 }),
+                // Delete Col Button
+                ElmIconButton(
+                  enabled: columnNum > columnMinSize,
+                  iconSize: 15,
+                  iconData: Icons.remove,
+                  iconColor: const Color.fromARGB(255, 40, 0, 0), 
+                  backgroundColor: const Color.fromARGB(255, 255, 197, 203), 
+                  buttonWidth: deleteButtonSize,
+                  buttonHeight: header_height,
+                  borderRadius: 3,
+                  onPressFunctions: (){
+                      columnNum = columnNum! - 1;
+                      columnHeaderValues.length = columnNum!;
+                      for (int rowIndex = 0; rowIndex < rowNum!; rowIndex++){
+                        widget.value['variables'][internal_name][rowIndex].removeLast();
+                        widget.uniqueValue['controller_data']['${internal_name}_${rowIndex}_${columnNum}'] = TextEditingController(text: "");
+                      }
+                      updateHeaderData(rowHeaderValues, rowNum!, columnHeaderValues, columnNum!);
+                      ElmModuleList.updateAllModuleUI(appState: appState);
+                  },
+                ),
               ]
             ),
             Row(
@@ -1088,7 +1222,7 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
                       width: header_width,
                       height: cell_height,
                       alignment: Alignment.center,
-                      child: Text('Row ${rowHeaderValues[rowIndex]}'),
+                      child: AutoSizeText(rowHeaderValuesDisplay[rowIndex], maxFontSize: 12, minFontSize: 5,),
                     );
                   }),
                 ),
@@ -1099,13 +1233,13 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
                     physics: const NeverScrollableScrollPhysics(),
                     shrinkWrap: true,
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: columnNum,
+                      crossAxisCount: columnNum!,
                       childAspectRatio: cell_width!/cell_height!,
                     ),
-                    itemCount: rowNum * columnNum,
+                    itemCount: rowNum * columnNum!,
                     itemBuilder: (context, index) {
-                      final row = index ~/ columnNum;
-                      final column = index % columnNum;
+                      final row = index ~/ columnNum!;
+                      final column = index % columnNum!;
                       //Add a border here (and remove the one from text). This border can't change size and has to look nice
                       return Container(
                         decoration: BoxDecoration(
@@ -1118,6 +1252,7 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
                         ),
                         //Child = Each individual cell that takes in an input
                         child: createWidgetFromConfig(
+                          //======================== ITEM IN EACH CELL IS SET HERE ===================
                           //Each Internal Name: oldname_row_col
                           //Each path: ['internal_name'][row][column]
                           internal_name: '${internal_name}_${row}_${column}',
@@ -1135,7 +1270,83 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
                     },
                   ),
                 ),
+                //Add col button
+                ElmIconButton(
+                  enabled: columnNum! < columnMaxSize,
+                  iconSize: 15,
+                  iconData: Icons.add,
+                  iconColor: const Color.fromARGB(255, 0, 40, 7), 
+                  backgroundColor: const Color.fromARGB(255, 197, 255, 215), 
+                  buttonWidth: deleteButtonSize,
+                  buttonHeight: cell_height * rowNum,
+                  borderRadius: 3,
+                  onPressFunctions: (){
+                      columnNum = columnNum! + 1;
+                      widget.value['internal_header_data'][internal_name]['columnNum'] = columnNum!;
+                      for(int rowIndex = 0; rowIndex < rowNum!; rowIndex++){
+                        widget.value['variables'][internal_name][rowIndex].add('');
+                      }
+                      updateHeaderData(rowHeaderValues, rowNum!, columnHeaderValues, columnNum!);
+                      ElmModuleList.updateAllModuleUI(appState: appState);
+                  },
+                ),
               ],
+            ),
+            Container(
+              width: cell_width * columnNum + header_width,
+              height: deleteButtonSize,
+              child: Row(
+                children: [
+                  //Delete row button
+                  ElmIconButton(
+                    enabled: rowNum > rowMinSize,
+                    iconSize: 15,
+                    iconData: Icons.remove,
+                    iconColor: const Color.fromARGB(255, 40, 0, 0), 
+                    backgroundColor: const Color.fromARGB(255, 255, 197, 203), 
+                    buttonWidth: header_width,
+                    buttonHeight: deleteButtonSize,
+                    borderRadius: 3,
+                    onPressFunctions: (){
+                      rowNum = rowNum! - 1;
+                      rowHeaderValues.length = rowNum!;
+                      widget.value['variables'][internal_name].removeLast();
+                      for (int columnIndex = 0; columnIndex < columnNum!; columnIndex++){
+                        widget.uniqueValue['controller_data']['${internal_name}_${rowNum}_${columnIndex}'] = TextEditingController(text: "");
+                      }
+                      updateHeaderData(rowHeaderValues, rowNum!, columnHeaderValues, columnNum!);
+                      ElmModuleList.updateAllModuleUI(appState: appState);
+                    },
+                  ),
+                  //Keeps position the same if delete row button is hidden
+                  Offstage(
+                    offstage: rowNum! > rowMinSize,
+                    child: SizedBox(
+                      width: header_width,
+                      height: deleteButtonSize,
+                    )
+                  ),
+                  //Add row button
+                  ElmIconButton(
+                    enabled: rowNum! < rowMaxSize,
+                    iconSize: 15,
+                    iconData: Icons.add,
+                    iconColor: const Color.fromARGB(255, 0, 40, 7), 
+                    backgroundColor: Color.fromARGB(255, 197, 255, 215), 
+                    buttonWidth: cell_width * columnNum,
+                    buttonHeight: deleteButtonSize,
+                    borderRadius: 3,
+                    onPressFunctions: (){
+                      rowNum = rowNum! + 1;
+                      widget.value['internal_header_data'][internal_name]['rowNum'] = rowNum!;
+                      widget.value['variables'][internal_name].add(List<String>.generate(columnNum!, (index) => ""));
+                      updateHeaderData(rowHeaderValues, rowNum!, columnHeaderValues, columnNum!);
+                      print(widget.value['internal_header_data'][internal_name]);
+                      ElmModuleList.updateAllModuleUI(appState: appState);
+                    },
+                  ),
+                ],
+              ),
             ),
           ],
         ),

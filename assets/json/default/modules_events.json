@@ -5,11 +5,11 @@
         "icon": "misc_flag",
         "inputs": {
             "aliases": {"type": "aliases", "display_text":"Aliases:"},
-            "add_pf": {"type": "number", "display_text":"Additional PF:", "integer": true, "range": "0.."},
+            "add_pf": {"type": "number", "display_text":"Additional PF:", "integer": true, "input_range": "0.."},
             "L_zombie_list": {"type": "list", "display_text":"Zombies:", 
                 "item": {"type": "codename_zombie", "display_text":"Zombie Typename:"}, 
                 "axis_row": {"axis_type": "setvalue", "values": {"1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "Random": null}},
-                "axis_column": {"axis_type": "none", "size": "5.."}
+                "axis_column": {"axis_type": "none", "size_range": "5.."}
             }
         },
         "level_modules": [],
@@ -40,7 +40,7 @@
             "some_more_text": {"type": "text", "display_text":"More Text:", "default_text":"second text"},
             "combined_text": {"type": "none", "display_text": "!combined_text_variable"},
 
-            "#add_pf": {"type": "number", "display_text":"Additional PF: ", "integer": true, "range": "0.."},
+            "#add_pf": {"type": "number", "display_text":"Additional PF: ", "integer": true, "input_range": "0.."},
             "#checkbox": {"type": "checkbox", "display_text": "yes or no", "default_bool": true}
         },
         "variables": {
@@ -52,8 +52,8 @@
             "aliases_rtid": {"type": "text_concatenate", "text_list": ["RTID(" ,"!aliases", "@CurrentLevel)"]},
             "combined_text_variable": {"type": "text_concatenate", "text_list": ["Combined:", "!some_text", "&", "!some_more_text"], "text_seperator": " "},
 
-            "#offset_pf_plus": {"type": "number_offset", "number": "!add_pf", "offset": 1, "range": "0.."},
-            "#offset_pf_minus": {"type": "number_offset", "number": "!add_pf", "offset": 1, "range": "0.."},
+            "#offset_pf_plus": {"type": "number_offset", "number": "!add_pf", "offset": 1, "input_range": "0.."},
+            "#offset_pf_minus": {"type": "number_offset", "number": "!add_pf", "offset": 1, "input_range": "0.."},
             "#checkbox_chooser": {"type": "checkbox_chooser", "true_option": "!offset_pf_plus", "false_option": "!offset_pf_minus"}
         },
         "level_modules": ["!aliases"],

@@ -539,7 +539,11 @@ List<List<dynamic>> transpose(List<List<dynamic>> matrix) {
 
   for (int i = 0; i < numRows; i++) {
     for (int j = 0; j < numCols; j++) {
-      transposed[j][i] = matrix[i][j];
+      if(j < matrix[i].length){
+        transposed[j][i] = matrix[i][j];
+      } else {
+        transposed[j][i] = "";
+      }
     }
   }
 
@@ -572,6 +576,77 @@ bool deepEquals(dynamic a, dynamic b) {
     return true;
   } else {
     return a == b;
+  }
+}
+
+///
+/// Converts a string in the minecraft range format into a list<int> of [firstItem, secondItem, clampedNumber]. Clamping can be ignored.
+/// 
+/// [input] = String in the format "minNum..maxNum". For instance, "1..4". Alternatively, "1.." for above 1 or "..6" for below 6.
+/// The function will attempt to correct for incorrect formats.
+/// 
+/// Optional [inputClamp] = Clamps this int if it's outside the range. Returned as the 3rd element of the list.
+/// 
+/// Optional [minLower] and [maxUpper] = Limits for the output range.
+/// 
+/// Optional [defaultLower] and [defaultUpper] = Values set if a min or max is not given.
+///
+List<int> convertRange({required String? stringRange, inputClamp = null, int minLower = 0, int maxUpper = 100, int defaultLower = 0, int defaultUpper = 100}){
+  try {
+    stringRange ??= '${defaultLower}..${defaultUpper}';
+    
+    int outMin = defaultLower;
+    int outMax = defaultUpper;
+    
+    if(defaultUpper < defaultLower){defaultUpper = defaultLower;}
+    if(maxUpper < minLower){maxUpper = minLower;}
+    
+    List rowSizeSplit = stringRange.split('..');
+    if(rowSizeSplit.length == 0){}
+    else if (rowSizeSplit.length == 1 && rowSizeSplit[0] != ""){
+      outMin = int.parse(rowSizeSplit[0]);
+      outMax = int.parse(rowSizeSplit[0]);
+    } else if (rowSizeSplit.length >= 2){
+      if(rowSizeSplit[0] == ""){
+        outMin = minLower;
+      } else {
+        outMin = int.parse(rowSizeSplit[0]);
+      }
+      if(rowSizeSplit[1] == ""){
+        outMax = maxUpper;
+      } else {
+        outMax = int.parse(rowSizeSplit[1]);
+      }
+    }
+    
+    if(outMin < minLower){outMin = defaultLower;}
+    if(outMax > maxUpper){outMax = defaultUpper;}
+
+    if(inputClamp == null){
+      return [outMin, outMax, outMin];
+    } else {
+      if(inputClamp is String){inputClamp = int.parse(inputClamp);}
+      if (inputClamp < outMin){inputClamp = outMin;}
+      if (inputClamp > outMax){inputClamp = outMax;}
+      return [outMin, outMax, inputClamp];
+    }
+  } on Exception {
+    print('convertRange exception');
+    int outMin = defaultLower;
+    int outMax = defaultUpper;
+    if(inputClamp == null){
+      return [outMin, outMax, outMin];
+    } else {
+      try {
+        if(inputClamp is String){inputClamp = int.parse(inputClamp);}
+        if (inputClamp < outMin){inputClamp = outMin;}
+        if (inputClamp > outMax){inputClamp = outMax;}
+      } on Exception {
+        print('convertRange 2nd exception');
+        inputClamp = outMin;
+      }
+      return [outMin, outMax, inputClamp];
+    }
   }
 }
 
