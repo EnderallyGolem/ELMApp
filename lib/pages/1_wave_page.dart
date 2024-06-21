@@ -63,7 +63,6 @@ class WaveModule extends StatefulWidget {
     controllers ??= TextEditingController(text: value); //Sets a value if null
     key ??= UniqueKey();
     display = '${'waves_wave'.tr} ${waveIndex + 1}';
-    debugPrint('rebuilt ${waveIndex} ${key}');
   }
 
   static Widget _buildAnimatedWaveModule(int waveIndex, Animation<double> animation) {

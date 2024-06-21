@@ -176,19 +176,16 @@
         "inputs": {
             "none": {"type": "none", "display_text": ":)"},
             "aliases": {"type": "aliases", "display_text":"Aliases:"},
-            "some_text": {"type": "text", "display_text":"Cool Text:", "default_text":"first text"},
-            "nullable_text": {"type": "text", "display_text":"Nullable Text:", "default_text":null},
             "#some_number": {"type": "number", "display_text":"More Text:", "default_text":"second text"},
-            "combined_text": {"type": "none", "display_text": "!combined_text_variable"},
+            "#combined_text": {"type": "none", "display_text": "!combined_text_variable"},
 
-            "#": "TO-DO: If no default text, by default empty values WON'T SHOW UP",
             "L_textList": {"type": "list", "display_text":"Some List:", "cell_width": 100, "cell_height": 25, "header_width": 50, "header_height": 25,
                 "item": {"type": "text", "#default_text": "nnn", "#display_text": "there is no display text! L! Don't have one here, or else stuff will break."}, 
                 "axis_row": {"axis_type": "none", "size_range": "-3..", "size_default": "2"},
                 "axis_column": {"axis_type": "none", "size_range": "..6", "size_default": 2}
             },
 
-            "L_text1DList": {"type": "list", "display_text":"Some List:", "cell_width": 100, "cell_height": 25, 
+            "#L_text1DList": {"type": "list", "display_text":"Some List:", "cell_width": 100, "cell_height": 25, 
                 "item": {"type": "text"}, 
                 "axis_row": {"axis_type": "none", "size_range": "1", "size_default": "3"}, 
                 "axis_column": {"axis_type": "none", "size_range": "2..", "input_range": ""}

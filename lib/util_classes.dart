@@ -94,12 +94,13 @@ abstract class GenericProviderState {
   late double scrollOffset;
   late Map<String, bool> enabledButtons;
   late String moduleJsonFileName;
+  VoidCallback? onNavigateToTargetPage;
 
   void dispose();
   void updateModuleState();
   void updateModuleUI();
   void updateModuleCodeInMain({required elmModuleListArr});
-  void importModuleCode({dynamic moduleCodeToAdd = ''});
+  void checkImportModuleCode();
 }
 
 
@@ -114,39 +115,32 @@ class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
     //Sets a value if null
     key ??= UniqueKey();
     value ??= {
-      //Entirely for the dropdown list selecting which module is used
-      'module_dropdown_list': {
-        'dropdown_module_display_text': 'util_default_module_dropdown'.tr,
-        'dropdown_module_internal_name': 'Empty',
-        'dropdown_image': Image.asset('assets/icon/moduleassets/misc_empty.png', height: 20, width: 20),
-      },
-      //Stored internal values. Things you type should be stored here.
-      'internal_data': {
-        'minimised': false,
-        'objects': [],
-        'levelModules': [],
-        'waveModules': [],
-      }, 
-      //Special internal values for headers. This is to store more data while maintaining path format for lists with regular values
-      'internal_header_data': {}, 
-      //Stored values that are actually used. If you typed nothing, this can be different from internal_data (uses default value instead)
-      'variables': {
-        'select_module_message': 'util_default_module_message'.tr,
-        'aliases': null,
-        'default_aliases': '',
-        'event_number': moduleIndex + 1,
-
-        //Lists should be stored like that
-        //Run a check to see if it's a map when reading values
-        //If it's a map, for variables run for every item
-        //If not, it's a single value and proceed as per normal
-        'example_list': [
-          ['r1c1', 'r1c2', 'r1c3'],
-          ['r2c1', 'r2c2', 'r2c3'],
-          ['r3c1', 'r3c2', 'r3c3']
-        ]
-      }
+      'module_dropdown_list': null, //Entirely for the dropdown list selecting which module is used
+      'internal_data': null, //Stored internal values. Values here are temporary and will not appear in the final code.
+      'input_data': {}, //Stores TYPED input data. Data here will be stored in the module itself for importing.
+      'input_header_data': {}, //Special input values for headers. This is to store more data while maintaining path format for lists with regular values
+      'variables': null //Stored values that are actually used. If you typed nothing, this can be different from internal_data (uses default value instead)
     };
+
+    //This is splitted apart in case only some parts are defined, for instance when importing objs
+    value['module_dropdown_list'] ??= {
+      'dropdown_module_display_text': 'util_default_module_dropdown'.tr,
+      'dropdown_module_internal_name': 'Empty',
+      'dropdown_image': Image.asset('assets/icon/moduleassets/misc_empty.png', height: 20, width: 20),
+    };
+    value['internal_data'] ??= {
+      'minimised': false,
+      'objects': [],
+      'levelModules': [],
+      'waveModules': [],
+    };
+    value['variables'] ??= {
+      'select_module_message': 'util_default_module_message'.tr,
+      'aliases': null,
+      'default_aliases': '',
+      'event_number': moduleIndex + 1,
+    };
+
     uniqueValue ??= {
       //Internal data which ARE NOT COPIED when the wave is copied.
       'internal_data': {
@@ -386,6 +380,14 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
   @override
   Widget build(BuildContext context) {
 
+    //For import: If have 'dropdown_module_internal_name' but not the others
+
+    if(widget.value['module_dropdown_list']['dropdown_module_internal_name'] != null && widget.value['module_dropdown_list']['dropdown_image'] == null){
+      String moduleInternalName = widget.value['module_dropdown_list']['dropdown_module_internal_name'];
+      widget.value['module_dropdown_list']['dropdown_module_display_text'] = ProviderMainState.global["moduleJsons"][appGenericState.moduleJsonFileName][moduleInternalName]!["display_text"];
+      widget.value['module_dropdown_list']['dropdown_image'] = ProviderMainState.global["moduleJsons"][appGenericState.moduleJsonFileName][moduleInternalName]!["Image"];
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -545,75 +547,6 @@ class ElmSingleModuleInputWidget<T extends GenericProviderState> extends Statele
         child: ElmDynamicModuleForm(appState: appGenericState, widget: widget, config: ProviderMainState.global["moduleJsons"][appGenericState.moduleJsonFileName][widget.value['module_dropdown_list']['dropdown_module_internal_name']])
       ),
     );
-  }
-}
-
-class ElmDynamicModuleForm<T extends GenericProviderState> extends StatelessWidget {
-  final Map<String, dynamic> config;
-  final ElmModuleList<T> widget;
-  final T appState;
-
-  ElmDynamicModuleForm({required this.config, required this.widget, required this.appState});
-
-  @override
-  Widget build(BuildContext context) {
-    List<Widget> formWidgets = [];
-    const int loopMaxNum = 30;
-
-    //Create widgets for each input
-    updateWidgetAndVariableInfo(formWidgets: formWidgets, loopMaxNum: loopMaxNum);
-
-    //If module type is just changed, it isn't updated properly. Update it once more!
-    if(widget.uniqueValue['internal_data']['firstUpdate']){
-      widget.uniqueValue['internal_data']['firstUpdate'] = false;
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        ElmModuleList.updateAllModuleUI(appState: appState);
-      });
-    }
-
-    //Update level code and export to main
-    widget.value['internal_data']['objects'] = variableCheckDynamic(input: config['raw_code'], widget: widget, isExport: true);
-    widget.value['internal_data']['levelModules'] = variableCheckDynamic(input: config['level_modules'], widget: widget, isExport: true);
-    widget.value['internal_data']['waveModules'] = variableCheckDynamic(input: config['wave_modules'], widget: widget, isExport: true);
-    appState.updateModuleState(); //Update the module code in main! ONCE!
-
-    //Build the UI
-    return Wrap(
-      spacing: 5,
-      runSpacing: 5,
-      direction: Axis.vertical,
-      crossAxisAlignment: WrapCrossAlignment.start,
-      children: formWidgets,
-    );
-  }
-
-  void updateWidgetAndVariableInfo({required List<Widget> formWidgets, int loopMaxNum = 1}) {
-    dynamic beforeData = deepCopy(widget.value);
-    
-    //Run code for each variable
-    config['variables'] ??= {};
-    config['variables'].forEach((internal_name, value) {
-      if (!internal_name.startsWith('#')) {
-        updateVariablesFromConfig(internal_name: internal_name, configVariable: value, widget: widget, appState: appState);
-      }
-    });
-
-    dynamic afterData = widget.value;
-
-    //Check if should repeat!
-    if(deepEquals(beforeData, afterData) == false && loopMaxNum > 0){
-      loopMaxNum--;
-      updateWidgetAndVariableInfo(formWidgets: formWidgets, loopMaxNum: loopMaxNum);
-      return;
-    }
-
-    //Create widgets for each input
-    config['inputs'] ??= {};
-    config['inputs'].forEach((internal_name, value) {
-      if (!internal_name.startsWith('#')) {
-        formWidgets.add(createWidgetFromConfig(internal_name: internal_name, configInput: value, widget: widget, appState: appState));
-      }
-    });
   }
 }
 
@@ -800,7 +733,7 @@ variableCheckStringListParameter({required String objName, required dynamic key,
     //Extract the filtered item to return
     if(parameter == "axis_row" || parameter == "axis_column"){
       //Return row/col headers
-      returnItem = widget.value['internal_header_data'][variable][parameter];
+      returnItem = widget.value['input_header_data'][variable][parameter];
     } else {
       //Return flattened ver of list
       returnItem = flatten(widget.value['variables'][variable]);
@@ -839,13 +772,13 @@ variableCheckStringListParameter({required String objName, required dynamic key,
     parametersToLoop.forEach((value){
       String variable = value[0];
       String parameter = value[1];
-      if (widget.value['internal_header_data'][variable] == null) {
+      if (widget.value['input_header_data'][variable] == null) {
         //Null only occurs on first run through when dropdown list is first selected.
         //Code is reran when this happens, so no issues here!
         return; //Please stop though. Though to be honest I don't think this return statement even does anything.
       } else {
         allVarValues[variable] ??= {};
-        allVarValues[variable]![parameter] = widget.value['internal_header_data'][variable][parameter];
+        allVarValues[variable]![parameter] = widget.value['input_header_data'][variable][parameter];
       }
     });
 
@@ -885,18 +818,20 @@ variableCheckStringListParameter({required String objName, required dynamic key,
               int? axisIndex;
               axisIndex = indices[variable]?[parameter]; //Check parametersToLoop
               axisIndex ??= newNestedListInfo?['parametersLoopIndex']?[variable]?[parameter]; //Check parametersLoopValue
-      
-              if(axisIndex == null){
-              } else if(parameter == 'axis_row'){
-                if(widget.value['variables'][variable]?[axisIndex].where((e) => e != "" && e != null).length > 0){
-                  markToAdd['axisNoItem'] = true; //Sets axisNoItem to true regardless of !!
-                  if(value.startsWith('!!')){markToAdd['axis'] = true;} //Sets axis to true ONLY IF !!
-                }
-              } else {
-                List<List<dynamic>> transposedVar = transpose(widget.value['variables'][variable].cast<List<dynamic>>());
-                if(transposedVar[axisIndex].where((e) => e != "" && e != null).length > 0){
-                  markToAdd['axisNoItem'] = true; //Sets axisNoItem to true regardless of !!
-                  if(value.startsWith('!!')){markToAdd['axis'] = true;} //Sets axis to true ONLY IF !!
+
+              if (widget.value['variables'][variable] != null) { //This is here for importing issues as not all variables are set in the first run.
+                if(axisIndex == null){
+                } else if(parameter == 'axis_row'){
+                  if(widget.value['variables'][variable]?[axisIndex].where((e) => e != "" && e != null).length > 0){
+                    markToAdd['axisNoItem'] = true; //Sets axisNoItem to true regardless of !!
+                    if(value.startsWith('!!')){markToAdd['axis'] = true;} //Sets axis to true ONLY IF !!
+                  }
+                } else {
+                  List<List<dynamic>> transposedVar = transpose(widget.value['variables'][variable].cast<List<dynamic>>());
+                  if(transposedVar[axisIndex].where((e) => e != "" && e != null).length > 0){
+                    markToAdd['axisNoItem'] = true; //Sets axisNoItem to true regardless of !!
+                    if(value.startsWith('!!')){markToAdd['axis'] = true;} //Sets axis to true ONLY IF !!
+                  }
                 }
               }
       
@@ -909,14 +844,11 @@ variableCheckStringListParameter({required String objName, required dynamic key,
               //Get their indexes (not their value)
               int? axisRowIndex, axisColumnIndex;
               dynamic variableList = widget.value['variables'][variable]; //widget.value['variables'][variable][row][column]
-              print('!!!! $variableList');
               axisRowIndex = indices[variable]?['axis_row']; //Check parametersToLoop
               axisColumnIndex = indices[variable]?['axis_column'];
               axisRowIndex ??= newNestedListInfo?['parametersLoopIndex']?[variable]?['axis_row']; //Check parametersLoopValue
               axisColumnIndex ??= newNestedListInfo?['parametersLoopIndex']?[variable]?['axis_column'];
 
-              print('rowIndex $axisRowIndex | colIndex $axisColumnIndex');
-      
               if (axisRowIndex != null && axisColumnIndex != null) { //Null occurs on first dropdown select. Ignore.
                 newValue = variableList?[axisRowIndex]?[axisColumnIndex];
                 setNestedProperty(obj: newNestedListInfo, path: ['parametersLoopIndex', variable, 'axis_column'], value: axisColumnIndex);
@@ -992,6 +924,89 @@ variableCheckStringListParameter({required String objName, required dynamic key,
   }
 }
 
+class ElmDynamicModuleForm<T extends GenericProviderState> extends StatelessWidget {
+  final Map<String, dynamic> config;
+  final ElmModuleList<T> widget;
+  final T appState;
+
+  ElmDynamicModuleForm({required this.config, required this.widget, required this.appState});
+
+  @override
+  Widget build(BuildContext context) {
+    List<Widget> formWidgets = [];
+    const int loopMaxNum = 30;
+
+    //Create widgets for each input
+    updateWidgetAndVariableInfo(formWidgets: formWidgets, loopMaxNum: loopMaxNum);
+
+    //If module type is just changed, it isn't updated properly. Update it once more!
+    if(widget.uniqueValue['internal_data']['firstUpdate']){
+      widget.uniqueValue['internal_data']['firstUpdate'] = false;
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        ElmModuleList.updateAllModuleUI(appState: appState);
+      });
+    }
+
+    //Update level code and export to main
+    widget.value['internal_data']['objects'] = variableCheckDynamic(input: config['raw_code'], widget: widget, isExport: true);
+    widget.value['internal_data']['levelModules'] = variableCheckDynamic(input: config['level_modules'], widget: widget, isExport: true);
+    widget.value['internal_data']['waveModules'] = variableCheckDynamic(input: config['wave_modules'], widget: widget, isExport: true);
+
+    //Add input internal data used for importing level
+    if (widget.value['internal_data']['objects'] != null && widget.value['internal_data']['objects'] != ""){
+      setNestedProperty(obj: widget.value['internal_data']['objects'], path: [0, "#data"], value: encodeNestedStructure(
+        {'module_dropdown_list': {'dropdown_module_internal_name': widget.value['module_dropdown_list']['dropdown_module_internal_name']},
+        'input_data': widget.value['input_data'],
+        'input_header_data': widget.value['input_header_data']
+        }
+      ));
+      for(int index = 1; index < widget.value['internal_data']['objects'].length; index++){
+        setNestedProperty(obj: widget.value['internal_data']['objects'], path: [index, "#data"], value: index); //Secondary ones don't need to store data. Number = secondary. Because.
+      }
+    }
+
+    appState.updateModuleState(); //Update the module code in main! ONCE!
+
+    //Build the UI
+    return Wrap(
+      spacing: 5,
+      runSpacing: 5,
+      direction: Axis.vertical,
+      crossAxisAlignment: WrapCrossAlignment.start,
+      children: formWidgets,
+    );
+  }
+
+  void updateWidgetAndVariableInfo({required List<Widget> formWidgets, int loopMaxNum = 1}) {
+    dynamic beforeData = deepCopy(widget.value);
+    
+    //Run code for each variable
+    config['variables'] ??= {};
+    config['variables'].forEach((internal_name, value) {
+      if (!internal_name.startsWith('#')) {
+        updateVariablesFromConfig(internal_name: internal_name, configVariable: value, widget: widget, appState: appState);
+      }
+    });
+
+    dynamic afterData = widget.value;
+
+    //Check if should repeat!
+    if(deepEquals(beforeData, afterData) == false && loopMaxNum > 0){
+      loopMaxNum--;
+      updateWidgetAndVariableInfo(formWidgets: formWidgets, loopMaxNum: loopMaxNum);
+      return;
+    }
+
+    //Create widgets for each input
+    config['inputs'] ??= {};
+    config['inputs'].forEach((internal_name, value) {
+      if (!internal_name.startsWith('#')) {
+        formWidgets.add(createWidgetFromConfig(internal_name: internal_name, configInput: value, widget: widget, appState: appState));
+      }
+    });
+  }
+}
+
 void variableTextConcatenate({
   required String internal_name, 
   required Map<String, dynamic> config, 
@@ -1019,6 +1034,7 @@ Widget createWidgetFromConfig(
   }
 ){
   path ??= [internal_name];
+  debugPrint('createWidgetFromConfig || internal_name $internal_name | configInput $configInput');
   switch (configInput['type']) {
     case 'none':
       return NoInputWidget(
@@ -1115,8 +1131,8 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
     int? rowNum = null, columnNum = null, rowMinSize = null, rowMaxSize = null, rowInitialSize = null, columnMinSize = null, columnMaxSize = null, columnInitialSize = null;
     List rowHeaderValues = [], rowHeaderValuesDisplay = [], columnHeaderValues = [], columnHeaderValuesDisplay = [];
 
-    rowNum = widget.value?['internal_header_data']?[internal_name]?['rowNum'];
-    columnNum = widget.value?['internal_header_data']?[internal_name]?['columnNum'];
+    rowNum = widget.value?['input_header_data']?[internal_name]?['rowNum'];
+    columnNum = widget.value?['input_header_data']?[internal_name]?['columnNum'];
 
     //Obtain and set information on axis_row and axis_column. Info on (each) item obtained when building table.
     rowConfig!['axis_type'] ??= "none";
@@ -1153,11 +1169,10 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
           columnHeaderValuesDisplay.add('show col $index');
         }
       }
-      setNestedProperty(obj: widget.value['internal_header_data'], path: [internal_name, 'axis_row'], value: rowHeaderValues);
-      setNestedProperty(obj: widget.value['internal_header_data'], path: [internal_name, 'rowNum'], value: rowNum);
-      setNestedProperty(obj: widget.value['internal_header_data'], path: [internal_name, 'axis_column'], value: columnHeaderValues);
-      setNestedProperty(obj: widget.value['internal_header_data'], path: [internal_name, 'columnNum'], value: columnNum);
-      print('order 1');
+      setNestedProperty(obj: widget.value['input_header_data'], path: [internal_name, 'axis_row'], value: rowHeaderValues);
+      setNestedProperty(obj: widget.value['input_header_data'], path: [internal_name, 'rowNum'], value: rowNum);
+      setNestedProperty(obj: widget.value['input_header_data'], path: [internal_name, 'axis_column'], value: columnHeaderValues);
+      setNestedProperty(obj: widget.value['input_header_data'], path: [internal_name, 'columnNum'], value: columnNum);
     }
     updateHeaderData(rowHeaderValues, rowNum, columnHeaderValues, columnNum);
 
@@ -1282,7 +1297,7 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
                   borderRadius: 3,
                   onPressFunctions: (){
                       columnNum = columnNum! + 1;
-                      widget.value['internal_header_data'][internal_name]['columnNum'] = columnNum!;
+                      widget.value['input_header_data'][internal_name]['columnNum'] = columnNum!;
                       for(int rowIndex = 0; rowIndex < rowNum!; rowIndex++){
                         widget.value['variables'][internal_name][rowIndex].add('');
                       }
@@ -1338,10 +1353,9 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
                     borderRadius: 3,
                     onPressFunctions: (){
                       rowNum = rowNum! + 1;
-                      widget.value['internal_header_data'][internal_name]['rowNum'] = rowNum!;
+                      widget.value['input_header_data'][internal_name]['rowNum'] = rowNum!;
                       widget.value['variables'][internal_name].add(List<String>.generate(columnNum!, (index) => ""));
                       updateHeaderData(rowHeaderValues, rowNum!, columnHeaderValues, columnNum!);
-                      print(widget.value['internal_header_data'][internal_name]);
                       ElmModuleList.updateAllModuleUI(appState: appState);
                     },
                   ),
@@ -1399,9 +1413,9 @@ class AliasesInputWidget<T extends GenericProviderState> extends StatelessWidget
   @override
   Widget build(BuildContext context) {
     //If null controller data, set to internal data text (or empty if null)
-    widget.uniqueValue['controller_data']['aliases'] ??= widget.value['internal_data']['aliases'] == null ? TextEditingController(text: '') : TextEditingController(text: widget.value['internal_data']['aliases']);
+    widget.uniqueValue['controller_data']['aliases'] ??= widget.value['input_data']['aliases'] == null ? TextEditingController(text: '') : TextEditingController(text: widget.value['input_data']['aliases']);
     //If null internal data or null variable, set to default aliases
-    if(widget.value['internal_data']['aliases'] == null || widget.value['variables']['aliases'] == null){
+    if(widget.value['input_data']['aliases'] == null || widget.value['variables']['aliases'] == null){
       widget.value['variables']['aliases'] = widget.value['variables']['default_aliases'];
     }
     return Row(
@@ -1427,7 +1441,7 @@ class AliasesInputWidget<T extends GenericProviderState> extends StatelessWidget
               key: Key('${widget.key} aliases'),
               controller: widget.uniqueValue['controller_data']['aliases'],
               onChanged: (inputValue) {
-                widget.value['internal_data']['aliases'] = inputValue;
+                widget.value['input_data']['aliases'] = inputValue;
                 if(inputValue == ''){
                   widget.value['variables']['aliases'] = widget.value['variables']['default_aliases'];
                 } else {
@@ -1480,16 +1494,32 @@ class TextInputWidget<T extends GenericProviderState> extends StatelessWidget {
     //If null controller data, set to internal data text (or empty if null)
     widget.uniqueValue['controller_data'][internal_name] ??= 
     TextEditingController(
-        text: getNestedProperty(obj: widget.value['internal_data'], path: path) ?? ''
+        text: getNestedProperty(obj: widget.value['input_data'], path: path) ?? ''
     );
-    //If null internal data or null variables, set variable to default and internal data to blank
-    //(Internal data set is only necessary for lists)
+    //If null variables but NOT null input data, set variable to internal name, or default if blank
+    dynamic inputData = getNestedProperty(obj: widget.value['input_data'], path: path);
     if(
-      getNestedProperty(obj: widget.value['internal_data'], path: path) == null 
+      inputData != null 
+      && getNestedProperty(obj: widget.value['variables'], path: path) == null
+    ){
+      if(inputData == ""){
+        setNestedProperty(obj: widget.value['variables'], path: path, value: default_text);
+      } else {
+        setNestedProperty(obj: widget.value['variables'], path: path, value: inputData);
+      }
+    }
+
+    //If null input data or null variables, set variable to default and input data to blank
+    //(Input data set is only necessary for lists)
+    if(
+      getNestedProperty(obj: widget.value['input_data'], path: path) == null 
       ||getNestedProperty(obj: widget.value['variables'], path: path) == null 
     ){
+      print('here?');
       setNestedProperty(obj: widget.value['variables'], path: path, value: default_text);
-      setNestedProperty(obj: widget.value['internal_data'], path: path, value: '');
+      print('here2? || ${widget.value['input_data']} || $path');
+      setNestedProperty(obj: widget.value['input_data'], path: path, value: '');
+      print('here3?');
     }
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -1515,7 +1545,7 @@ class TextInputWidget<T extends GenericProviderState> extends StatelessWidget {
               key: Key('${widget.key} ${internal_name}'),
               controller: widget.uniqueValue['controller_data'][internal_name],
               onChanged: (inputValue) {
-                setNestedProperty(obj: widget.value['internal_data'], path: path, value: inputValue);
+                setNestedProperty(obj: widget.value['input_data'], path: path, value: inputValue);
                 if(inputValue == ''){
                   setNestedProperty(obj: widget.value['variables'], path: path, value: default_text);
                 } else {

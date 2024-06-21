@@ -3,8 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart'; 
+import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
+import 'package:base_x/base_x.dart';
 
-
+///
+/// Returns json file (as an obj). This is an async function! Requires async + await.
+/// 
+/// [path] = Path of json. Eg: 'assets/json/default/${filename}.json'
+///
 Future loadJson({required String path}) async {
   String data = await rootBundle.loadString(path);
   var jsonResult = json.decode(data);
@@ -35,6 +41,7 @@ void setNestedProperty({required dynamic obj, required List<dynamic> path, requi
         if (key >= 0 && key < current.length) {
           current[key] = value;
         } else {
+          print(current);
           current.insert(key, value);  // Lists: Handle out-of-bounds index
         }
       } else {
@@ -57,7 +64,7 @@ void setNestedProperty({required dynamic obj, required List<dynamic> path, requi
             dynamic addItem = path[i + 1] is int ? [] : {};
             current.add(addItem);
           }
-          current = current[key];
+          current = current[key]; 
         }
       } else {
         throw Exception('Invalid path or object type during traversal');
@@ -548,6 +555,30 @@ List<List<dynamic>> transpose(List<List<dynamic>> matrix) {
   }
 
   return transposed;
+}
+
+var basex = BaseXCodec(" ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#\$%^&*()-_=+[{]}\\|;:'\",<.>/?`~¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ");
+
+// Function to convert nested list/map to a shortened string using MessagePack
+String encodeNestedStructure(dynamic nestedStructure) {
+  // Serialize the nested structure to MessagePack
+  Uint8List bytes = msgpack.serialize(nestedStructure);
+
+  // Encode the bytes to Base64 (for a safe string representation)
+  String base64String = basex.encode(bytes);
+
+  return base64String;
+}
+
+// Function to convert the shortened string back to nested list/map using MessagePack
+dynamic decodeNestedStructure(String encodedString) {
+  // Decode the Base64 string to bytes
+  Uint8List bytes = basex.decode(encodedString);
+
+  // Deserialize the MessagePack bytes to the original nested structure
+  dynamic nestedStructure = msgpack.deserialize(bytes);
+
+  return nestedStructure;
 }
 
 

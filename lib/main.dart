@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
+import 'package:event_bus/event_bus.dart';
 
 import 'pages/1_wave_page.dart';
 import 'pages/2_initial_page.dart';
@@ -64,6 +65,9 @@ class MyApp extends StatelessWidget {
   }
 }
 
+// Create an event bus instance
+EventBus eventBus = EventBus();
+class CheckImportModuleCodeEvent {}
 
 //APPSTATE -------------------------------------------------
 class ProviderMainState extends ChangeNotifier {
@@ -71,6 +75,7 @@ class ProviderMainState extends ChangeNotifier {
   //Values accessible anywhere!
   static dynamic global = {
     'isOpenWithImport': false,
+    'nonElmImportWarn': [],
 
     'moduleJsons': {},
     'waveCount': 0, //TO-DO: stuff for this. Create function to update when importing level, and when editing relevant pages.
@@ -81,11 +86,12 @@ class ProviderMainState extends ChangeNotifier {
     'objects': [],
     'levelModules': [],
     'waveModules': [],
+    'full': {},
   };
-  static dynamic waveCode = {'objects': [], 'levelModules': [], 'waveModules': []};
-  static dynamic initialCode = {'objects': [], 'levelModules': [], 'waveModules': []};
-  static dynamic settingCode = {'objects': [], 'levelModules': [], 'waveModules': []};
-  static dynamic customCode = {'objects': [], 'levelModules': [], 'waveModules': []};
+  static dynamic waveCode = {'objects': [], 'levelModules': [], 'waveModules': [], 'importCheck': false};
+  static dynamic initialCode = {'objects': [], 'levelModules': [], 'waveModules': [], 'importCheck': false};
+  static dynamic settingCode = {'objects': [], 'levelModules': [], 'waveModules': [], 'importCheck': false};
+  static dynamic customCode = {'objects': [], 'levelModules': [], 'waveModules': [], 'importCheck': false};
 
   List waveModuleArr = [];
 
@@ -94,28 +100,62 @@ class ProviderMainState extends ChangeNotifier {
   };
 
   /// Resets level code to empty.
-  static void resetLevelCode(){
-    print('Resetting level code...');
-    levelCode = {'objects': [], 'levelModules': [], 'waveModules': [],};
-    waveCode = {'objects': [], 'levelModules': [], 'waveModules': []};
-    initialCode = {'objects': [], 'levelModules': [], 'waveModules': []};
-    settingCode = {'objects': [], 'levelModules': [], 'waveModules': []};
-    customCode = {'objects': [], 'levelModules': [], 'waveModules': []};
+  static Future<void> resetLevelCode() async {
+    debugPrint('Resetting level code...');
+    levelCode = {'objects': [], 'levelModules': [], 'waveModules': [], 'full': {}};
+    waveCode = {'objects': [], 'levelModules': [], 'waveModules': [], 'importCheck': true};
+    initialCode = {'objects': [], 'levelModules': [], 'waveModules': [], 'importCheck': true};
+    settingCode = {'objects': [], 'levelModules': [], 'waveModules': [], 'importCheck': true};
+    customCode = {'objects': [], 'levelModules': [], 'waveModules': [], 'importCheck': true};
+
+    dynamic eventObj = await loadJson(path: 'assets/json/templatelevel.json');
+
+    importLevelCode(importedCode: eventObj);
     updateLevelCode();
-    importLevelCode();
   }
 
   static void importLevelCode({importedCode = null}){
     importedCode ??= {'objects': [], 'levelModules': [], 'waveModules': [],};
-    print('Imported Level Code: $importedCode');
     //levelCode['objects'] = importedCode['objects'];
-    levelCode = importedCode;
+
     //Need to extract levelmodules and wavemodules
     //And also just extract everything in general
     //waveModuleArr = [],
 
-    print('imported level code objects: ${levelCode['objects']}');
-    ProviderWaveState.importWaveCode(waveCodeToAdd: levelCode['objects']); //TO-DO CHANGE
+    //Loop through every object
+    bool doneLevelDefinition = false;
+
+    importedCode['objects'].forEach((item){
+      String objclass = item['objclass'];
+      //print(objclass);
+
+      if(objclass == 'LevelDefinition' && doneLevelDefinition == false){
+        doneLevelDefinition = true;
+        //Do special levelDefinition stuff
+
+        //For module w/o data, check if it's settings (preset list), then events (json). If neither, it's custom.
+      } else {
+        //Everything here should be leftover code that isn't ran directly by the level, and isn't grouped into some other module.
+        //These should be in custom.
+        customCode['objects'].add(item);
+      }
+    });
+
+    //Something went wrong and the code can't be imported. Abuse try/catch xd
+    if(doneLevelDefinition == false){
+      throw("misc_importlevel_error_missingleveldefinition".tr);
+    }
+
+    //Add events. This is ran now rather than when page is opened in order to check for errors when importing.
+    eventBus.fire(CheckImportModuleCodeEvent());
+
+    if(ProviderMainState.global['nonElmImportWarn'].length > 0){
+      String errorMsg = ProviderMainState.global['nonElmImportWarn'].join(', ');
+      Get.defaultDialog(title: 'misc_importlevel_warn_header'.tr, middleText: "${'misc_importlevel_warn_desc'.tr}\n\n$errorMsg\n\n${'misc_importlevel_warn_desc2'.tr}", textCancel: 'generic_ok'.tr);
+      ProviderMainState.global['nonElmImportWarn'] = [];
+    }
+
+    //ProviderWaveState.importWaveCode(waveCodeToAdd: levelCode['objects']); //TO-DO CHANGE
   }
 
   /// 
@@ -125,14 +165,41 @@ class ProviderMainState extends ChangeNotifier {
   /// 
   static void updateLevelCode(){
 
-    //Note: For future waves, *ADD* new elements of array on top of levelCode objs
-    levelCode = {
-      'objects': [...waveCode['objects'], ...initialCode['objects'], ...settingCode['objects'], ...customCode['objects']],
-      'levelModules': [...waveCode['levelModules'], ...initialCode['levelModules'], ...settingCode['levelModules'], ...customCode['levelModules']],
-      'waveModules': [...waveCode['objects'], ...initialCode['waveModules'], ...settingCode['waveModules'], ...customCode['waveModules']],
+    dynamic levelDefinition = {
+      "objclass": "LevelDefinition",
+      "objdata": {
+          "StartingSun": 50,
+          "Description": "Custom Level",
+          "FirstRewardParam": "moneybag",
+          "NormalPresentTable": "egypt_normal_01",
+          "ShinyPresentTable": "egypt_shiny_01",
+          "Loot": "RTID(DefaultLoot@LevelModules)",
+          "ResourceGroupNames": [
+              "DelayLoad_Background_Beach",
+              "DelayLoad_Background_Beach_Compressed",
+              "Tombstone_Dark_Special",
+              "Tombstone_Dark_Effects"
+          ],
+          "Modules": [],
+          "Name": "My Level",
+          "StageModule": "RTID(ModernStage@LevelModules)"
+      }
     };
 
-    //debugPrint('main | updateLevelCode: Updating level to new code: $levelCode');
+    //Note: For future waves, *ADD* new elements of array on top of levelCode objs
+    levelCode = {
+      'objects': [levelDefinition, ...waveCode['objects'], ...initialCode['objects'], ...settingCode['objects'], ...customCode['objects']],
+      'levelModules': [...waveCode['levelModules'], ...initialCode['levelModules'], ...settingCode['levelModules'], ...customCode['levelModules']],
+      'waveModules': [...waveCode['objects'], ...initialCode['waveModules'], ...settingCode['waveModules'], ...customCode['waveModules']],
+      'full': {},
+    };
+
+    levelCode['full'] = {
+      '#comment': '',
+      '#zombies': '',
+      'objects': levelCode['objects']
+    };
+
     ProviderMiscState.getCodeShown;
   }
 
@@ -185,6 +252,10 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
     _checkForFile();
     ProviderMainState.reloadModuleJsons(); //This is not for the json stuff lol
+
+    //Run functions to load the first 4 pages in the background, then unload them.
+    //This is to initialise classes.
+
   }
 
   //This is ran if the app starts.
@@ -194,7 +265,13 @@ class _MyHomePageState extends State<MyHomePage> {
       const platform = MethodChannel('com.example.elmapp/openfile');
 
       final String? fileContent = await platform.invokeMethod('getFileContent');
-      if (fileContent != null) {
+      if (fileContent == null) {
+        //This means the app did NOT open with a json file.
+        //If so, load the level template by running resetLevelCode.
+
+        ProviderMainState.resetLevelCode();
+
+      } else {
         //This means the app opened with a json file.
 
         //Correct the file path because it is wrong and stupid and L
@@ -214,20 +291,30 @@ class _MyHomePageState extends State<MyHomePage> {
         });
       }
     } on PlatformException catch (e) {
-      print("Failed to get file path: '${e.message}'.");
+      debugPrint("Failed to get file path: '${e.message}'.");
     }
   }
 
   //Bottom Navigation bar stuff
 
-  final List<List<dynamic>> _pages = [
-    [Page_Wave(), 'page_waves'.tr],
-    [Page_Initial(), 'page_inital'.tr],
-    [Page_Setting(), 'page_setting'.tr],
-    [Page_Custom(), 'page_custom'.tr],
-    [Page_Summary(), 'page_summary'.tr],
-    [Page_Codename(), 'page_codename'.tr],
-    [Page_Misc(), 'page_misc'.tr],
+  final List<Widget> _pages = [
+    Page_Wave(),
+    Page_Initial(),
+    Page_Setting(),
+    Page_Custom(),
+    Page_Summary(),
+    Page_Codename(),
+    Page_Misc(),
+  ];
+
+  final List<String> _pageName = [
+    'page_waves'.tr, 
+    'page_inital'.tr, 
+    'page_setting'.tr, 
+    'page_custom'.tr, 
+    'page_summary'.tr, 
+    'page_codename'.tr, 
+    'page_misc'.tr
   ];
 
   @override
@@ -237,7 +324,7 @@ class _MyHomePageState extends State<MyHomePage> {
         snackBar: const SnackBar(
           content: Text('Tap back again to quit the app!'),
         ), 
-        child: _pages[_currentIndex][0]),
+        child: _pages[_currentIndex]),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.shifting,
         currentIndex: _currentIndex,
@@ -252,43 +339,43 @@ class _MyHomePageState extends State<MyHomePage> {
           BottomNavigationBarItem(
             //Waves
             icon: Icon(Icons.flag, color: Color.fromARGB(255, 169, 202, 255),),
-            label: _pages[0][1],
+            label: _pageName[0],
             backgroundColor: Color.fromARGB(255, 23, 31, 46),
           ),
           BottomNavigationBarItem(
             //Initial
             icon: Icon(Icons.grid_view, color: Color.fromARGB(255, 169, 202, 255),),
-            label: _pages[1][1],
+            label: _pageName[1],
             backgroundColor: Color.fromARGB(255, 23, 31, 46),
           ),
           BottomNavigationBarItem(
             //Settings
             icon: Icon(Icons.settings, color: Color.fromARGB(255, 169, 202, 255),),
-            label: _pages[2][1],
+            label: _pageName[2],
             backgroundColor: Color.fromARGB(255, 23, 31, 46),
           ),
           BottomNavigationBarItem(
             //Custom
             icon: Icon(Icons.star, color: Color.fromARGB(255, 169, 202, 255),),
-            label: _pages[3][1],
+            label: _pageName[3],
             backgroundColor: Color.fromARGB(255, 23, 31, 46),
           ),
           BottomNavigationBarItem(
             //Summary
             icon: Icon(Icons.auto_graph_sharp, color: Color.fromARGB(255, 255, 229, 169),),
-            label: _pages[4][1],
+            label: _pageName[4],
             backgroundColor: Color.fromARGB(255, 23, 31, 46),
           ),
           BottomNavigationBarItem(
             //Codenames
             icon: Icon(Icons.table_rows_rounded, color: Color.fromARGB(255, 255, 229, 169),),
-            label: _pages[5][1],
+            label: _pageName[5],
             backgroundColor: Color.fromARGB(255, 23, 31, 46),
           ),
           BottomNavigationBarItem(
             //Misc
             icon: Icon(Icons.download, color: Color.fromARGB(255, 255, 229, 169),),
-            label: _pages[6][1],
+            label: _pageName[6],
             backgroundColor: Color.fromARGB(255, 23, 31, 46),
           ),
         ],

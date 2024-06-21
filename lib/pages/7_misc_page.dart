@@ -26,7 +26,7 @@ class ProviderMiscState extends ChangeNotifier {
 
   static void getCodeShown(){
     levelCode = ProviderMainState.levelCode;
-    levelJson = jsonEncoder.convert(levelCode['objects']); //Obviously has to be changed in the future
+    levelJson = jsonEncoder.convert(levelCode['full']);
   }
 
   static void importCodeWithOpen({required String fileContent}){
@@ -102,8 +102,11 @@ class _Page_MiscState extends State<Page_Misc> {
                 onPressed: () {
                   Get.defaultDialog(title: 'misc_resetlevel_warning_title'.tr, middleText: 'misc_resetlevel_warning_desc'.tr, textCancel: 'Cancel'.tr, textConfirm: 'Confirm'.tr,
                   onConfirm: (){
-                    ProviderMainState.resetLevelCode();
-                    appMiscState.updateMiscState();
+                    void doStuff() async {
+                      await ProviderMainState.resetLevelCode();
+                      appMiscState.updateMiscState(); //Ensure above is done before this runs
+                    }
+                    doStuff();
                     Get.back();
                   });
                 },
@@ -120,7 +123,7 @@ class _Page_MiscState extends State<Page_Misc> {
               ) : SizedBox.shrink()
             ],
           ),
-          Text(ProviderMiscState.levelJson),
+          Text(ProviderMiscState.levelJson, textScaler: TextScaler.linear(0.7)),
         ]
       )
     );
@@ -139,21 +142,24 @@ void _importFile({required dynamic context, required ProviderMainState appMainSt
   ProviderMainState.global['isOpenWithImport'] = false;
   if (result != null) {
     try{
-        PlatformFile file = result.files.single;
-        String fileContent = utf8.decode(file.bytes!);
-        //String importedFileDirectory = file.path!;
-        dynamic importedFile = jsonDecode(fileContent);
-        importedFileName = file.name;
-        // print('Imported File name: $importedFileName');
-        // print('Imported Directory: $importedFileDirectory');
-        // print('importedFile["objects"][0]["objdata"]["ResourceGroupNames"] = ${importedFile["objects"][0]["objdata"]["ResourceGroupNames"]}');
-        ProviderMainState.importLevelCode(importedCode: importedFile);
-        appMiscState.updateMiscState();
-        ProviderMainState.global['isOpenWithImport'] == false;
-      } catch (e) {
-        Get.defaultDialog(title: 'generic_error'.tr, middleText: "${'misc_importlevel_error_desc'.tr}\n\n$e", textCancel: 'generic_ok'.tr);
-        ProviderMainState.resetLevelCode(); //Clear level code to prevent errors
-        appMiscState.updateMiscState();
+      PlatformFile file = result.files.single;
+      String fileContent = utf8.decode(file.bytes!);
+      //String importedFileDirectory = file.path!;
+      dynamic importedFile = jsonDecode(fileContent);
+      importedFileName = file.name;
+      print('----------------------- 0');
+      ProviderMainState.importLevelCode(importedCode: importedFile);
+      print('----------------------- 1');
+      appMiscState.updateMiscState();
+      print('---------------------- 2');
+      ProviderMainState.global['isOpenWithImport'] == false;
+    } catch (e) {
+      Get.defaultDialog(title: 'generic_error'.tr, middleText: "${'misc_importlevel_error_desc'.tr}\n\n$e", textCancel: 'generic_ok'.tr);
+      void doStuff() async {
+        await ProviderMainState.resetLevelCode();
+        appMiscState.updateMiscState(); //Ensure above is done before this runs
+      }
+      doStuff();
     }
   }
 }

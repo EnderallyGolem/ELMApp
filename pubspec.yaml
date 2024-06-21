@@ -25,6 +25,9 @@ dependencies:
   auto_size_text: ^3.0.0
   dropdown_button2: ^2.3.9
   auto_size_text_field: ^2.2.3
+  msgpack_dart: ^1.0.1
+  base_x: ^2.0.1
+  event_bus: ^2.0.0
 
 dev_dependencies:
   flutter_test:

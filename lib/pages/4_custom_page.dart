@@ -1,3 +1,4 @@
+import 'package:elmapp/util_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
@@ -13,6 +14,7 @@ class ProviderCustomState extends ChangeNotifier implements GenericProviderState
   @override Map<String, bool> enabledButtons = //Change enabled buttons. extra contains all disabled buttons.
     {'minimise': false, 'shiftup': false, 'shiftdown': false, 'copy': false, 'delete': true, 'add': true, 'extra': true}; //TO-DO: Button for copying event into another wave
   @override String moduleJsonFileName = 'modules_custom';
+  @override VoidCallback? onNavigateToTargetPage;
 
   @override List<ElmModuleList> elmModuleListArr = [];
   @override GlobalKey<AnimatedListState> animatedModuleListKey = GlobalKey<AnimatedListState>();
@@ -40,25 +42,67 @@ class ProviderCustomState extends ChangeNotifier implements GenericProviderState
       //TO-DO: WaveModules has to be changed. It is to be added to the wave number.
       //Might be a good idea to keep it in the wave number + RTID format until the end.
       if(elmModuleListArr[moduleIndex].value['internal_data']['objects'] != null && elmModuleListArr[moduleIndex].value['internal_data']['objects'] != ""){
-        moduleCode["objects"].add(elmModuleListArr[moduleIndex].value['internal_data']['objects']);
+        moduleCode["objects"] = [...moduleCode["objects"], ...elmModuleListArr[moduleIndex].value['internal_data']['objects']];
       }
       if(elmModuleListArr[moduleIndex].value['internal_data']['levelModules'] != null && elmModuleListArr[moduleIndex].value['internal_data']['levelModules'] != ""){
-        moduleCode["levelModules"].add(elmModuleListArr[moduleIndex].value['internal_data']['levelModules']);
+        moduleCode["levelModules"] = [...moduleCode["levelModules"], ...elmModuleListArr[moduleIndex].value['internal_data']['levelModules']];
       }
       if(elmModuleListArr[moduleIndex].value['internal_data']['waveModules'] != null && elmModuleListArr[moduleIndex].value['internal_data']['waveModules'] != ""){
-        moduleCode["waveModules"].add(elmModuleListArr[moduleIndex].value['internal_data']['waveModules']);
+        moduleCode["waveModules"] = [...moduleCode["waveModules"], ...elmModuleListArr[moduleIndex].value['internal_data']['waveModules']];
       }
     }
     ProviderMainState.customCode = moduleCode;
   }
 
-  // Imports code from main. updateCode true means list is recreated when first loaded.
-  // Enable if code is imported (it should be set to false when done)
-  @override void importModuleCode({dynamic moduleCodeToAdd = ''}){
-    updateCode = true;
-    elmModuleListArr = [];
-    for(int moduleIndex = 0; moduleIndex < moduleCodeToAdd.length; moduleIndex++){
-      elmModuleListArr.insert(moduleIndex, ElmModuleList(moduleIndex: moduleIndex, value: moduleCodeToAdd[moduleIndex].toString())); //TO-DO: Change value
+  ProviderCustomState() {
+    // Listen for the CheckImportModuleCodeEvent
+    eventBus.on<CheckImportModuleCodeEvent>().listen((event) {
+      checkImportModuleCode();
+    });
+  }
+
+  // Imports code from main. 
+  // updateCode true means list is recreated when first loaded. Enable if code is imported (it should be set to false when done)
+  @override void checkImportModuleCode(){
+
+    dynamic codeToAdd = ProviderMainState.customCode;
+
+    print(codeToAdd);
+    if(codeToAdd['importCheck'] == true){
+      codeToAdd['importCheck'] = false;
+      dynamic moduleCodeToAdd = codeToAdd['objects'];
+
+      updateCode = true;
+      elmModuleListArr = [];
+
+      print(moduleCodeToAdd);
+
+      for(int moduleIndex = 0; moduleIndex < moduleCodeToAdd.length; moduleIndex++){
+        print(moduleCodeToAdd[moduleIndex]);
+        String? aliases = moduleCodeToAdd?[moduleIndex]?['aliases'][0]; //For debugging and errors
+
+        //Try to obtain value data from stored internal data. If it doesn't exist, oof
+        dynamic value;
+        String? data = moduleCodeToAdd[moduleIndex]['#data'];
+        if(data == null){
+          ProviderMainState.global['nonElmImportWarn'].add(aliases);
+          //FRICK!
+        } else if (data is int){
+          //Do absolutely nothing!
+          continue;
+        } else {
+          //Decode to obtain data, and use that as value.
+          value = deepCopy(decodeNestedStructure(data));
+        }
+
+        try {
+          elmModuleListArr.insert(moduleIndex, ElmModuleList(moduleIndex: moduleIndex, value: value));
+        } catch (e) {
+          debugPrint('Custom: Error occured when trying to import module: $aliases');
+          ProviderMainState.global['nonElmImportWarn'].add(aliases);
+          elmModuleListArr.insert(moduleIndex, ElmModuleList(moduleIndex: moduleIndex, value: null));
+        }
+      }      
     }
   }
 }
@@ -72,6 +116,7 @@ class _Page_CustomState extends State<Page_Custom> {
   void initState() {
     super.initState();
     var appState = context.read<ProviderCustomState>();
+    appState.checkImportModuleCode();
     appState.scrollController.addListener(_scrollListener);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       appState.scrollController.jumpTo(appState.scrollOffset); // Restore scroll position
