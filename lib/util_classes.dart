@@ -88,10 +88,9 @@ abstract class GenericProviderState {
   late List<ElmModuleList> elmModuleListArr = [];
   late Color themeColour;
   late final GlobalKey<AnimatedListState> animatedModuleListKey;
-  late bool updateCode;
+  late bool runForFirstTime;
+  late bool isImportingModules;
   late bool isVertical;
-  late ScrollController scrollController;
-  late double scrollOffset;
   late Map<String, bool> enabledButtons;
   late String moduleJsonFileName;
   VoidCallback? onNavigateToTargetPage;
@@ -125,7 +124,7 @@ class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
     //This is splitted apart in case only some parts are defined, for instance when importing objs
     value['module_dropdown_list'] ??= {
       'dropdown_module_display_text': 'util_default_module_dropdown'.tr,
-      'dropdown_module_internal_name': 'Empty',
+      'dropdown_module_internal_name': 'empty',
       'dropdown_image': Image.asset('assets/icon/moduleassets/misc_empty.png', height: 20, width: 20),
     };
     value['internal_data'] ??= {
@@ -140,6 +139,8 @@ class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
       'default_aliases': '',
       'event_number': moduleIndex + 1,
     };
+    value['input_data'] ??= {};
+    value['input_header_data'] ??= {};
 
     uniqueValue ??= {
       //Internal data which ARE NOT COPIED when the wave is copied.
@@ -177,7 +178,6 @@ class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
       (context, animation) => _buildAnimatedElmModuleList<T>(moduleIndex: moduleIndex, animation: animation, appState: appState)
     );
   }
-
   static void addModuleBelow<T extends GenericProviderState>({required int moduleIndex, dynamic newValue = null, required T appState, bool deepCopyValue = false}) {
     if (newValue != null && deepCopyValue){
       newValue = deepCopy(newValue);
@@ -188,6 +188,16 @@ class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
     appState.animatedModuleListKey.currentState!.insertItem(
       moduleIndex+1, 
       duration: Duration(milliseconds: 150)
+    );
+  }
+  static void correctAnimatedModuleListSize<T extends GenericProviderState>({required T appState, required BuildContext context}) {
+    appState.animatedModuleListKey.currentState!.removeAllItems(
+      duration: Duration(milliseconds: 0),
+      (context, animation) => _buildAnimatedElmModuleList<T>(moduleIndex: 0, animation: animation, appState: appState)
+    );
+    appState.animatedModuleListKey.currentState!.insertAllItems(
+      0, appState.elmModuleListArr.length,
+      duration: const Duration(milliseconds: 150)
     );
   }
 
@@ -221,13 +231,6 @@ class _ElmModuleListState<T extends GenericProviderState> extends State<ElmModul
   @override
   Widget build(BuildContext context) {
     var appGenericState = context.watch<T>();
-
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      if(appGenericState.updateCode){
-        appGenericState.updateModuleUI(); //Update UI the first time it is loaded. Such a dumb workaround...
-        appGenericState.updateCode = false;
-      }
-    });
 
     bool isVertical = appGenericState.isVertical;
     if (widget.value['internal_data']['minimised']){
@@ -402,7 +405,7 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
                   isExpanded: true,
                   hint: Row(
                     children: [
-                      widget.value['module_dropdown_list']['dropdown_image'],
+                      widget.value['module_dropdown_list']['dropdown_image'] ?? Image.asset('assets/icon/moduleassets/misc_empty.png', height: 20, width: 20),
                       SizedBox(width: 4),
                       Expanded(
                         child: AutoSizeText(
@@ -423,7 +426,7 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
                     child: FittedBox(
                       child: Row(
                         children: [
-                          entry.value['Image'],
+                          entry.value['Image'] ?? Image.asset('assets/icon/moduleassets/misc_empty.png', height: 20, width: 20,),
                           SizedBox(width: 5),
                           Text(
                             entry.value['display_text'] as String,
@@ -753,6 +756,7 @@ variableCheckStringListParameter({required String objName, required dynamic key,
         path.removeLast();
       }
     }
+
     //Now iterate across all items in this list layer only, and extract all the parameters in {}
     iterateAndModifyNestedMapAndTopList(
       nestedItem: getNestedProperty(obj: nestedItem, path: path),
@@ -948,24 +952,47 @@ class ElmDynamicModuleForm<T extends GenericProviderState> extends StatelessWidg
     }
 
     //Update level code and export to main
+
     widget.value['internal_data']['objects'] = variableCheckDynamic(input: config['raw_code'], widget: widget, isExport: true);
     widget.value['internal_data']['levelModules'] = variableCheckDynamic(input: config['level_modules'], widget: widget, isExport: true);
     widget.value['internal_data']['waveModules'] = variableCheckDynamic(input: config['wave_modules'], widget: widget, isExport: true);
 
     //Add input internal data used for importing level
-    if (widget.value['internal_data']['objects'] != null && widget.value['internal_data']['objects'] != ""){
-      setNestedProperty(obj: widget.value['internal_data']['objects'], path: [0, "#data"], value: encodeNestedStructure(
-        {'module_dropdown_list': {'dropdown_module_internal_name': widget.value['module_dropdown_list']['dropdown_module_internal_name']},
-        'input_data': widget.value['input_data'],
-        'input_header_data': widget.value['input_header_data']
+    if (widget.value['internal_data']['objects'] != null && widget.value['internal_data']['objects'] != "" && widget.value['internal_data']['objects'].length > 0){
+
+      print('here ${widget.value['internal_data']['objects']}');
+
+      //Each item should be a map, beacuse that's how PvZ2 works. If it is not, attempt to convert into one (custom code string likely.)
+      //Also, maps are able to hold data, so that's 2 issues solved at once!
+      //Otherwise, yeet
+      for(int index = 0; index < widget.value['internal_data']['objects'].length; index++){
+        //If it is a string and the sides are {}, convert it map. Or at least try to anyway.
+        if(widget.value['internal_data']['objects'][index] is! Map){
+          widget.value['internal_data']['objects'][index] = convertStringToMap(widget.value['internal_data']['objects'][index]);
+          //if it can't be converted to map, YEET.
+          if(widget.value['internal_data']['objects'][index] is! Map){
+            (widget.value['internal_data']['objects'] as List).removeAt(index);
+            index--;
+          }
         }
-      ));
+      }
+
+      try {
+        setNestedProperty(obj: widget.value['internal_data']['objects'], path: [0, "#data"], value: encodeNestedStructure(
+          {'module_dropdown_list': {'dropdown_module_internal_name': widget.value['module_dropdown_list']['dropdown_module_internal_name']},
+          'input_data': widget.value['input_data'],
+          'input_header_data': widget.value['input_header_data']
+          }
+        ));
+      } catch (e) {
+        //Event is invalid wow... I can't put a dialog here lol
+        debugPrint('Error when trying to add data into event!\nProbably invalid format\n\n $e');
+      }
+
       for(int index = 1; index < widget.value['internal_data']['objects'].length; index++){
         setNestedProperty(obj: widget.value['internal_data']['objects'], path: [index, "#data"], value: index); //Secondary ones don't need to store data. Number = secondary. Because.
       }
     }
-
-    appState.updateModuleState(); //Update the module code in main! ONCE!
 
     //Build the UI
     return Wrap(
@@ -1034,7 +1061,7 @@ Widget createWidgetFromConfig(
   }
 ){
   path ??= [internal_name];
-  debugPrint('createWidgetFromConfig || internal_name $internal_name | configInput $configInput');
+  //debugPrint('createWidgetFromConfig || internal_name $internal_name | configInput $configInput');
   switch (configInput['type']) {
     case 'none':
       return NoInputWidget(
@@ -1515,11 +1542,8 @@ class TextInputWidget<T extends GenericProviderState> extends StatelessWidget {
       getNestedProperty(obj: widget.value['input_data'], path: path) == null 
       ||getNestedProperty(obj: widget.value['variables'], path: path) == null 
     ){
-      print('here?');
       setNestedProperty(obj: widget.value['variables'], path: path, value: default_text);
-      print('here2? || ${widget.value['input_data']} || $path');
       setNestedProperty(obj: widget.value['input_data'], path: path, value: '');
-      print('here3?');
     }
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -1809,6 +1833,16 @@ class ElmModuleListWidget<T extends GenericProviderState> extends StatelessWidge
 
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      appState.updateModuleState(); //Update the module code in main! ONCE!
+    });
+
+    if(appState.isImportingModules){
+      appState.isImportingModules = false;
+      ElmModuleList.correctAnimatedModuleListSize(appState: appState, context: context);
+    }
+
+
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 30,
@@ -1835,7 +1869,6 @@ class ElmModuleListWidget<T extends GenericProviderState> extends StatelessWidge
         scrollDirection: appState.isVertical ? Axis.vertical : Axis.horizontal,
         key: appState.animatedModuleListKey,
         initialItemCount: appState.elmModuleListArr.length,
-        controller: appState.scrollController,
         itemBuilder: (context, index, animation) {
           return FadeTransition(
             opacity: animation,

@@ -12,10 +12,16 @@ class ProviderWaveState extends ChangeNotifier {
   static ScrollController scrollController = ScrollController();
   static double scrollOffset = 0.0;
 
+  static bool updateCode = true;
+
   void updateWaveState(){
     notifyListeners();                                    //Updates the displayed wave UI state
     updateWaveCodeInMain(waveModuleArr: waveModuleArr);   //Updates wave code in main.dart
     ProviderMainState.updateLevelCode();                  //Updates the full code in main.dart
+  }
+
+  void updateWaveUI(){
+    notifyListeners();                                    //Updates the displayed wave UI state
   }
 
   //Generate the updated waveCode, then updates the waveCode in main.dart with it
@@ -263,10 +269,6 @@ final GlobalKey<AnimatedListState> animatedWaveListKey = GlobalKey<AnimatedListS
 class _Page_WaveState extends State<Page_Wave> {
   @override
   void initState() {
-    ProviderWaveState.scrollController.addListener(_scrollListener);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ProviderWaveState.scrollController.jumpTo(ProviderWaveState.scrollOffset); // Restore scroll position
-    });
     super.initState();
   }
   void dispose() {
@@ -281,6 +283,17 @@ class _Page_WaveState extends State<Page_Wave> {
   @override
   Widget build(BuildContext context) {
     var appWaveState = context.watch<ProviderWaveState>();
+
+    if (ProviderWaveState.updateCode) {
+      ProviderWaveState.updateCode = false;
+      eventBus.on<RebuildPageEvent>().listen((event) {
+        if (event.allExcept && event.pageToRebuild != '!wave' || event.pageToRebuild == 'wave'){
+          appWaveState.updateWaveUI();
+          debugPrint('wave rebuild');
+        }
+      });
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text('page_waves'.tr),

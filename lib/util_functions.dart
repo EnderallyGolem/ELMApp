@@ -19,6 +19,33 @@ Future loadJson({required String path}) async {
 }
 
 ///
+/// Attempts to convert a string [input] into a map.
+/// 
+/// Returns the new map, or the original string if it is unable to convert.
+///
+dynamic convertStringToMap(String input) {
+  try {
+    // Try to decode the string as JSON
+    final decoded = json.decode(input);
+
+    // Check if the decoded result is a map
+    if (decoded is Map<String, dynamic>) {
+      print('successful convert of $input (=');
+      return decoded;
+    } else {
+      // If it's not a map, return the original string
+      print('unsuccessful convert of $input )=');
+      return input;
+    }
+  } catch (e) {
+    // If an error occurs, return the original string
+    print('unsuccessful convert of $input )=');
+    return input;
+  }
+}
+
+
+///
 /// Set value of a nested object/array/whatever.
 /// Changes the value if it already exists, otherwise adds a new value.
 /// 
@@ -41,11 +68,14 @@ void setNestedProperty({required dynamic obj, required List<dynamic> path, requi
         if (key >= 0 && key < current.length) {
           current[key] = value;
         } else {
-          print(current);
           current.insert(key, value);  // Lists: Handle out-of-bounds index
         }
+      } else if (current is String){
+        //Do absolutely nothing!
+        //To be honest I was editing the code halfway and was going to put something here 
+        //but then I found out this magically fixes the issue.
       } else {
-        throw Exception('Invalid path or object type at the final step');
+        throw Exception('Invalid path or object type at the final step. obj: $obj | current: $current | path: $path | value $value');
       }
     } else {
       // Traverse to the next key in the path
@@ -106,32 +136,24 @@ dynamic getNestedProperty({required dynamic obj, required List<dynamic> path, dy
 /// 
 /// [nestedItem] : The nested list or map
 /// 
-/// [function] : Function that is ran for every element with parameters [key] and [value].
+/// [function] : Function that is ran for every element with parameters [key], [value], and [path].
 /// [value] is modified to the value that is returned.
 /// The item is deleted if [value] = null
+/// [path] is an array of keys and indexes representing the path to the current value.
 ///
-void iterateAndModifyNested({required dynamic nestedItem, required dynamic Function(dynamic key, dynamic value) function}) {
+void iterateAndModifyNested({
+  required dynamic nestedItem,
+  required dynamic Function(dynamic key, dynamic value, List<dynamic> path) function,
+  List<dynamic> path = const [],
+}) {
   if (nestedItem is Map) {
     List keysToDelete = [];
     nestedItem.forEach((key, value) {
-      if (value is Map) {
-        iterateAndModifyNested(nestedItem: value, function: function);
-      } else if (value is List) {
-        for (int i = 0; i < value.length; i++) {
-          if (value[i] is Map || value[i] is List) {
-            iterateAndModifyNested(nestedItem: value[i], function: function);
-          } else {
-            var newValue = function(key, value[i]);
-            if (newValue == null) {
-              value.removeAt(i);
-              i--; // Adjust index after removal
-            } else {
-              value[i] = newValue;
-            }
-          }
-        }
+      var newPath = List.from(path)..add(key);
+      if (value is Map || value is List) {
+        iterateAndModifyNested(nestedItem: value, function: function, path: newPath);
       } else {
-        var newValue = function(key, value);
+        var newValue = function(key, value, newPath);
         if (newValue == null) {
           keysToDelete.add(key);
         } else {
@@ -140,15 +162,16 @@ void iterateAndModifyNested({required dynamic nestedItem, required dynamic Funct
       }
     });
     // Delete keys outside of forEach to avoid concurrent modification
-    keysToDelete.forEach((key) {
+    for (var key in keysToDelete) {
       nestedItem.remove(key);
-    });
+    }
   } else if (nestedItem is List) {
     for (int i = 0; i < nestedItem.length; i++) {
+      var newPath = List.from(path)..add(i);
       if (nestedItem[i] is Map || nestedItem[i] is List) {
-        iterateAndModifyNested(nestedItem: nestedItem[i], function: function);
+        iterateAndModifyNested(nestedItem: nestedItem[i], function: function, path: newPath);
       } else {
-        var newValue = function(null, nestedItem[i]);
+        var newValue = function(null, nestedItem[i], newPath);
         if (newValue == null) {
           nestedItem.removeAt(i);
           i--; // Adjust index after removal
@@ -159,6 +182,7 @@ void iterateAndModifyNested({required dynamic nestedItem, required dynamic Funct
     }
   }
 }
+
 
 
 
@@ -662,7 +686,6 @@ List<int> convertRange({required String? stringRange, inputClamp = null, int min
       return [outMin, outMax, inputClamp];
     }
   } on Exception {
-    print('convertRange exception');
     int outMin = defaultLower;
     int outMax = defaultUpper;
     if(inputClamp == null){
@@ -673,7 +696,6 @@ List<int> convertRange({required String? stringRange, inputClamp = null, int min
         if (inputClamp < outMin){inputClamp = outMin;}
         if (inputClamp > outMax){inputClamp = outMax;}
       } on Exception {
-        print('convertRange 2nd exception');
         inputClamp = outMin;
       }
       return [outMin, outMax, inputClamp];

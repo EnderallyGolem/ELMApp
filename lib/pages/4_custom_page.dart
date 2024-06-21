@@ -1,4 +1,5 @@
 import 'package:elmapp/util_functions.dart';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
@@ -18,9 +19,8 @@ class ProviderCustomState extends ChangeNotifier implements GenericProviderState
 
   @override List<ElmModuleList> elmModuleListArr = [];
   @override GlobalKey<AnimatedListState> animatedModuleListKey = GlobalKey<AnimatedListState>();
-  @override bool updateCode = true;
-  @override ScrollController scrollController = ScrollController();
-  @override double scrollOffset = 0.0;
+  @override bool runForFirstTime = true;
+  @override bool isImportingModules = false;
 
   // Updates main level code
   @override void updateModuleState(){
@@ -54,51 +54,129 @@ class ProviderCustomState extends ChangeNotifier implements GenericProviderState
     ProviderMainState.customCode = moduleCode;
   }
 
-  ProviderCustomState() {
-    // Listen for the CheckImportModuleCodeEvent
-    eventBus.on<CheckImportModuleCodeEvent>().listen((event) {
-      checkImportModuleCode();
-    });
-  }
-
-  // Imports code from main. 
-  // updateCode true means list is recreated when first loaded. Enable if code is imported (it should be set to false when done)
+  // Imports code from main.
   @override void checkImportModuleCode(){
 
     dynamic codeToAdd = ProviderMainState.customCode;
+    isImportingModules = true;
 
-    print(codeToAdd);
     if(codeToAdd['importCheck'] == true){
       codeToAdd['importCheck'] = false;
       dynamic moduleCodeToAdd = codeToAdd['objects'];
 
-      updateCode = true;
       elmModuleListArr = [];
 
-      print(moduleCodeToAdd);
-
       for(int moduleIndex = 0; moduleIndex < moduleCodeToAdd.length; moduleIndex++){
-        print(moduleCodeToAdd[moduleIndex]);
-        String? aliases = moduleCodeToAdd?[moduleIndex]?['aliases'][0]; //For debugging and errors
+        String? aliases = moduleCodeToAdd?[moduleIndex]?['aliases']?[0]; //For debugging and errors
 
         //Try to obtain value data from stored internal data. If it doesn't exist, oof
         dynamic value;
+        String moduleName;
         String? data = moduleCodeToAdd[moduleIndex]['#data'];
+
+        obtainValueFromCode({required String moduleName, required dynamic moduleObject, required dynamic jsonFile, dynamic currentValue}){
+
+          currentValue ??= {
+            'module_dropdown_list': {
+              'dropdown_module_internal_name': moduleName
+            },
+          };
+
+          currentValue = deepCopy(currentValue); //Yes. This fixes a bug. currentValue may not be expandable. This fixes it. Don't ask.
+
+          //Run through the code and loop through every key yay
+          dynamic jsonFileModule = jsonFile[moduleName];
+          iterateAndModifyNested(nestedItem: moduleObject, function: (key, value, path) {
+            //iterate across all values in moduleobject. Only do strings + special one for aliases
+
+            //Get the keyMap: Last key that is for a map
+            List pathMap = deepCopy(path);
+            String? keyMap;
+            for(int index = pathMap.length-1; index >= 0; index--){
+              if(pathMap[index] is String){
+                keyMap = pathMap[index];
+                break;
+              }
+            }
+
+            if(key is String || keyMap == 'aliases'){
+              //Find if keyMap is equal to any of the inputs. If so, set level module value as input's currentValue
+              for(dynamic inputEntry in jsonFileModule?['inputs'].entries){
+                if(inputEntry.key == keyMap){
+                  print('Set $currentValue > input_data > ${inputEntry.key} to $value');
+                  setNestedProperty(obj: currentValue, path: ['input_data', inputEntry.key], value: value);
+                }
+              }
+            }
+            return value;
+          });
+          return currentValue;
+        }
+
         if(data == null){
-          ProviderMainState.global['nonElmImportWarn'].add(aliases);
-          //FRICK!
+          ProviderMainState.global['nonElmImportWarn'].add(aliases); //Note down that this event has issues
+
+          //Obtain module name. If cannot find, default to 'custom_code'.
+          //Get objclass
+          String? moduleObjclass = moduleCodeToAdd?[moduleIndex]?['objclass'];
+
+          //Search json for class.
+          dynamic jsonFile = ProviderMainState.global["moduleJsons"][moduleJsonFileName];
+          String? moduleName;
+
+          if(jsonFile != null){ //Null occurs on first load. Though the template level shouldn't run this anyways.
+            for(dynamic entry in jsonFile.entries){
+              
+              //Only check match with 1 item long ones
+              if(entry.value?['raw_code']?[0] != null && entry.value?['raw_code'].length == 1 && entry.value?['raw_code']?[0] is! String && entry.value?['raw_code']?[0]?['objclass'] == moduleObjclass){
+                moduleName = entry.key;
+                break;
+              } 
+            }
+            if(moduleName != null){
+              //Not null - Add event based on moduleName
+              value = obtainValueFromCode(moduleName: moduleName, moduleObject: moduleCodeToAdd?[moduleIndex], jsonFile: jsonFile); //Obtain the direct-input values
+            } else {
+              //Null - Default to 'custom_code'.
+              print('aeiou');
+              print(moduleCodeToAdd?[moduleIndex]);
+
+              String jsonToAdd = jsonEncode(moduleCodeToAdd?[moduleIndex]);
+
+              print(jsonToAdd);
+
+              value = {
+                'module_dropdown_list': {
+                  'dropdown_module_internal_name': 'custom_code',
+                },
+                'input_data': {'L_raw_code': [[jsonToAdd]]},
+                'input_header_data': {
+                  'L_raw_code': {
+                  'axis_row': [0],
+                  'axis_column': [0],
+                  'rowNum': 1,
+                  'columnNum': 1,
+                  }
+                }
+              };
+            }
+          }
+
         } else if (data is int){
           //Do absolutely nothing!
           continue;
         } else {
           //Decode to obtain data, and use that as value.
-          value = deepCopy(decodeNestedStructure(data));
+          //Do not obtain from values, as certain stuff might break. Eg: Aliases being left blank intentionally but replaced with a value
+          value = decodeNestedStructure(data);
+          moduleName = value['module_dropdown_list']['dropdown_module_internal_name'];
         }
 
         try {
-          elmModuleListArr.insert(moduleIndex, ElmModuleList(moduleIndex: moduleIndex, value: value));
+          print('Insert to custom: $moduleIndex $value');
+          elmModuleListArr.insert(moduleIndex, ElmModuleList(moduleIndex: moduleIndex, value: deepCopy(value)));
         } catch (e) {
-          debugPrint('Custom: Error occured when trying to import module: $aliases');
+          debugPrint('Custom: Error occured when trying to import module: $aliases. Error: $e');
           ProviderMainState.global['nonElmImportWarn'].add(aliases);
           elmModuleListArr.insert(moduleIndex, ElmModuleList(moduleIndex: moduleIndex, value: null));
         }
@@ -113,27 +191,30 @@ class Page_Custom extends StatefulWidget {
 }
 
 class _Page_CustomState extends State<Page_Custom> {
+  @override
   void initState() {
     super.initState();
-    var appState = context.read<ProviderCustomState>();
-    appState.checkImportModuleCode();
-    appState.scrollController.addListener(_scrollListener);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      appState.scrollController.jumpTo(appState.scrollOffset); // Restore scroll position
-    });
   }
+  @override
   void dispose() {
     super.dispose();
-  }
-  void _scrollListener() {
-    if (mounted){
-      var appState = context.read<ProviderCustomState>();
-      appState.scrollOffset = appState.scrollController.offset;
-    }
   }
   @override
   Widget build(BuildContext context) {
     var appState = context.watch<ProviderCustomState>();
+    if (appState.runForFirstTime) {
+      appState.runForFirstTime = false;
+      eventBus.on<CheckImportModuleCodeEvent>().listen((event) {
+        appState.checkImportModuleCode();
+        appState.updateModuleUI();
+      });
+      eventBus.on<RebuildPageEvent>().listen((event) {
+        if (event.allExcept && event.pageToRebuild != '!custom' || event.pageToRebuild == 'custom'){
+          appState.updateModuleUI();
+          debugPrint('custom rebuild');
+        }
+      });
+    }
     return ElmModuleListWidget(
       appState: appState,
       title: 'page_custom'.tr,

@@ -71,7 +71,34 @@
             }
         ]
     },
-    "Empty": {
+    "custom_code": {
+        "enabled": true,
+        "display_text": "Custom Code",
+        "icon": "misc_star",
+        "inputs": {
+            "#L_level_modules": {"type": "list", "display_text":"Level Modules:",
+                "item": {"type": "text"}, 
+                "axis_row": {"axis_type": "none", "size_range": "2.."},
+                "axis_column": {"axis_type": "none", "size_range": "2"}
+            },
+            "#L_wave_modules": {"type": "list", "display_text":"Wave Modules:", 
+                "item": {"type": "text", "display_text":"Module"}, 
+                "axis_row": {"axis_type": "specifyvalue", "values": 
+                    {"type": "number", "display_text":"Wave", "integer": true, "input_range": "1.."}
+                },
+                "axis_column": {"axis_type": "none", "size_range": "2"}
+            },
+            "L_raw_code": {"type": "list", "display_text":"Code:", 
+                "item": {"type": "text", "display_text":"Code"}, 
+                "axis_row": {"axis_type": "none", "size_range": "1..", "default_size": 3},
+                "axis_column": {"axis_type": "none", "size_range": "1..", "default_size": 1}
+            }
+        },
+        "level_modules": ["!L_level_modules{Row: !axis_row, Type: !item}"],
+        "wave_modules": [{"Wave": "!wave_number", "RTID": "!aliases"}],
+        "raw_code": ["!L_raw_code"]
+    },
+    "empty": {
         "enabled": false,
         "display_text": "No Event",
         "icon": "misc_skull",

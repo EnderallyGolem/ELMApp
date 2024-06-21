@@ -1,41 +1,4 @@
 {
-    "custom_code": {
-        "enabled": true,
-        "display_text": "Custom Code",
-        "icon": "misc_star",
-        "inputs": {
-            "L_level_modules": {"type": "list", "display_text":"Level Modules:",
-                "item": {"type": "text"}, 
-                "axis_row": {"axis_type": "none", "size_range": "2.."},
-                "axis_column": {"axis_type": "none", "size_range": "2"}
-            },
-            "#L_wave_modules": {"type": "list", "display_text":"Wave Modules:", 
-                "item": {"type": "text", "display_text":"Module"}, 
-                "axis_row": {"axis_type": "specifyvalue", "values": 
-                    {"type": "number", "display_text":"Wave", "integer": true, "input_range": "1.."}
-                },
-                "axis_column": {"axis_type": "none", "size_range": "2"}
-            },
-            "#L_raw_code": {"type": "list", "display_text":"Code:", 
-                "item": {"type": "text", "display_text":"Code"}, 
-                "axis_row": {"axis_type": "none", "size_range": "1..", "default_size": 3},
-                "axis_column": {"axis_type": "none", "size_range": "1..", "default_size": 1}
-            },
-            "test": {"type": "none", "display_text": "testy test 1"},
-            "test1": {"type": "none", "display_text": "testy test 2"},
-            "test2": {"type": "none", "display_text": "testy test 3"},
-            "test3": {"type": "none", "display_text": "testy test 4"},
-            "test4": {"type": "none", "display_text": "testy test 5"},
-            "test5": {"type": "none", "display_text": "testy test 6"},
-            "test6": {"type": "none", "display_text": "testy test 7"},
-            "test7": {"type": "none", "display_text": "testy test 8"},
-            "test8": {"type": "none", "display_text": "testy test 9"},
-            "test9": {"type": "none", "display_text": "testy test 10"}
-        },
-        "level_modules": ["!L_level_modules{Row: !axis_row, Type: !item}"],
-        "wave_modules": [{"Wave": "!wave_number", "RTID": "!aliases"}],
-        "raw_code": ["!L_raw_code"]
-    },
     "test_event": {
         "enabled": true,
         "display_text": "Test Event",
@@ -74,7 +37,9 @@
             },
 
             "#add_pf": {"type": "number", "display_text":"Additional PF: ", "integer": true, "input_range": "0.."},
-            "#checkbox": {"type": "checkbox", "display_text": "yes or no", "default_bool": true, "true_value": true, "false_value": false}
+            "#checkbox": {"type": "checkbox", "display_text": "yes or no", "default_bool": true, "true_value": true, "false_value": false},
+
+            "#huge_text_type_using_reeditor_edit_custom_code_with_this!!!": {"type": "text_large", "display_text":"Cool Text:", "default_text":"first text"}
         },
         "variables": {
             "#Automatic Variables": "default_aliases, wave_number[NOT ADDED, TO-DO], event_number",
@@ -101,7 +66,7 @@
                 "aliases": [
                     "!aliases"
                 ],
-                "objclass": "NonExistentProps",
+                "objclass": "NonExistentProps2",
                 "objdata": {
                     "AdditionalPlantfood": 3.1415,
                     "CombinedText": "!combined_text_variable",
@@ -255,15 +220,44 @@
         "level_modules": ["!aliases"],
         "wave_modules": [{"Wave": "!wave_number", "RTID": "!aliases_rtid"}],
         "raw_code": [
-            {
-                "objdata": {
-                    "SomeText": "!some_text",
-                    "ListOfListOfItemAndCol": "!L_textList"
-                }
-            }
+            {"aliases":["!aliases"],
+            "objclass": "SpawnZombiesJitteredWaveActionProps",
+            "objdata":{
+                "AdditionalPlantfood": "!some_text",
+                "Zombies": [
+                    {"Row": "!L_textList{axis_row}", "Type": "!L_textList{item}"}
+                ]
+            }}
         ]
     },
-    "Empty": {
+    "custom_code": {
+        "enabled": true,
+        "display_text": "Custom Code",
+        "icon": "misc_star",
+        "inputs": {
+            "#L_level_modules": {"type": "list", "display_text":"Level Modules:",
+                "item": {"type": "text"}, 
+                "axis_row": {"axis_type": "none", "size_range": "2.."},
+                "axis_column": {"axis_type": "none", "size_range": "2"}
+            },
+            "#L_wave_modules": {"type": "list", "display_text":"Wave Modules:", 
+                "item": {"type": "text", "display_text":"Module"}, 
+                "axis_row": {"axis_type": "specifyvalue", "values": 
+                    {"type": "number", "display_text":"Wave", "integer": true, "input_range": "1.."}
+                },
+                "axis_column": {"axis_type": "none", "size_range": "2"}
+            },
+            "L_raw_code": {"type": "list", "display_text":"Raw Code", 
+                "item": {"type": "text"}, 
+                "axis_row": {"axis_type": "none", "size_range": "1..", "default_size": 3},
+                "axis_column": {"axis_type": "none", "size_range": "1..", "default_size": 1}
+            }
+        },
+        "level_modules": ["!L_level_modules{Row: !axis_row, Type: !item}"],
+        "wave_modules": [{"Wave": "!wave_number", "RTID": "!aliases"}],
+        "raw_code": ["!L_raw_code{item}"]
+    },
+    "empty": {
         "enabled": false,
         "display_text": "No Event",
         "icon": "misc_skull",

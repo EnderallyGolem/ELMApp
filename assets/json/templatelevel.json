@@ -98,7 +98,18 @@
                     }
                 ]
             }
-        }
+        },
+        {"aliases":["Wave7"],
+        "objclass": "SpawnZombiesJitteredWaveActionProps",
+        "objdata":{
+            "AdditionalPlantfood": 2,
+            "Zombies": [
+                {"Row": "1", "Type": "RTID(egypt2_armor1@ZombieTypes)"},
+                {"Row": "3", "Type": "RTID(egypt2_armor1@ZombieTypes)"},
+                {"Row": "2", "Type": "RTID(egypt2@ZombieTypes)"},
+                {"Row": "4", "Type": "RTID(egypt2@ZombieTypes)"}
+            ]
+        }}
     ],
     "version": 1
 }

@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../main.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
 
 
@@ -52,12 +51,15 @@ class _Page_MiscState extends State<Page_Misc> {
     var appMainState = context.watch<ProviderMainState>();
     var appMiscState = context.watch<ProviderMiscState>();
 
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      if(ProviderMiscState.updateCode){
-        appMiscState.updateMiscState(); //Update state the first time it is loaded. Such a dumb workaround...
-        ProviderMiscState.updateCode = false;
-      }
-    });
+    if (ProviderMiscState.updateCode) {
+      ProviderMiscState.updateCode = false;
+      eventBus.on<RebuildPageEvent>().listen((event) {
+        if (event.allExcept && event.pageToRebuild != '!misc' || event.pageToRebuild == 'misc'){
+          appMiscState.updateMiscState();
+          debugPrint('misc rebuild');
+        }
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -147,11 +149,8 @@ void _importFile({required dynamic context, required ProviderMainState appMainSt
       //String importedFileDirectory = file.path!;
       dynamic importedFile = jsonDecode(fileContent);
       importedFileName = file.name;
-      print('----------------------- 0');
       ProviderMainState.importLevelCode(importedCode: importedFile);
-      print('----------------------- 1');
       appMiscState.updateMiscState();
-      print('---------------------- 2');
       ProviderMainState.global['isOpenWithImport'] == false;
     } catch (e) {
       Get.defaultDialog(title: 'generic_error'.tr, middleText: "${'misc_importlevel_error_desc'.tr}\n\n$e", textCancel: 'generic_ok'.tr);
@@ -169,6 +168,7 @@ void _importFileWithOpen({required String fileContent}) async {
     dynamic importedFile = jsonDecode(fileContent);
 
     ProviderMainState.importLevelCode(importedCode: importedFile);
+    print('Import level with code $importedFile');
     //appMiscState.updateMiscState();
   } catch (e) {
     Get.defaultDialog(title: 'generic_error'.tr, middleText: "${'misc_importlevel_error_desc'.tr}\n\n$e", textCancel: 'generic_ok'.tr);
@@ -221,9 +221,9 @@ void saveFileToCustomDirectory({required String directoryPath, required String c
   try {
     // Write the content to the file
     await file.writeAsString(content);
-    print('File saved successfully at: ${file.path}');
+    debugPrint('File saved successfully at: ${file.path}');
   } catch (e) {
-    print('Unable to create file: $e');
+    debugPrint('Unable to create file: $e');
     Get.defaultDialog(title: 'generic_error'.tr, middleText: "${'misc_exportlevel_error_desc'.tr}\n\n$e", textCancel: 'generic_cancel'.tr);
   }
 }

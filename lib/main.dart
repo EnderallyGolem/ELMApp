@@ -67,7 +67,18 @@ class MyApp extends StatelessWidget {
 
 // Create an event bus instance
 EventBus eventBus = EventBus();
+
+//Import modules
 class CheckImportModuleCodeEvent {}
+
+//Update one specific page. Add ! for reloading all EXCEPT that page. Add something else (eg: All) for all pages.
+class RebuildPageEvent {
+  final String pageToRebuild;
+  bool allExcept = false;
+  RebuildPageEvent(this.pageToRebuild){
+    allExcept = pageToRebuild.startsWith('!');
+  }
+}
 
 //APPSTATE -------------------------------------------------
 class ProviderMainState extends ChangeNotifier {
@@ -102,20 +113,23 @@ class ProviderMainState extends ChangeNotifier {
   /// Resets level code to empty.
   static Future<void> resetLevelCode() async {
     debugPrint('Resetting level code...');
+    dynamic eventObj = await loadJson(path: 'assets/json/templatelevel.json');
+    importLevelCode(importedCode: eventObj);
+    //Don't need updateLevelCode(); as it'll already update after importing
+  }
+
+  static void importLevelCode({importedCode = null}){
+
+    debugPrint('Imported code: $importedCode');
+
+    importedCode ??= {'objects': [], 'levelModules': [], 'waveModules': [],};
+
     levelCode = {'objects': [], 'levelModules': [], 'waveModules': [], 'full': {}};
     waveCode = {'objects': [], 'levelModules': [], 'waveModules': [], 'importCheck': true};
     initialCode = {'objects': [], 'levelModules': [], 'waveModules': [], 'importCheck': true};
     settingCode = {'objects': [], 'levelModules': [], 'waveModules': [], 'importCheck': true};
     customCode = {'objects': [], 'levelModules': [], 'waveModules': [], 'importCheck': true};
 
-    dynamic eventObj = await loadJson(path: 'assets/json/templatelevel.json');
-
-    importLevelCode(importedCode: eventObj);
-    updateLevelCode();
-  }
-
-  static void importLevelCode({importedCode = null}){
-    importedCode ??= {'objects': [], 'levelModules': [], 'waveModules': [],};
     //levelCode['objects'] = importedCode['objects'];
 
     //Need to extract levelmodules and wavemodules
@@ -126,18 +140,21 @@ class ProviderMainState extends ChangeNotifier {
     bool doneLevelDefinition = false;
 
     importedCode['objects'].forEach((item){
-      String objclass = item['objclass'];
-      //print(objclass);
 
-      if(objclass == 'LevelDefinition' && doneLevelDefinition == false){
-        doneLevelDefinition = true;
-        //Do special levelDefinition stuff
+      print('item: $item');
 
-        //For module w/o data, check if it's settings (preset list), then events (json). If neither, it's custom.
-      } else {
-        //Everything here should be leftover code that isn't ran directly by the level, and isn't grouped into some other module.
-        //These should be in custom.
-        customCode['objects'].add(item);
+      if (item != null) { //Skip through nulls. Probably just empty {}
+        String? objclass = item['objclass']; //String? as possible that item has no objclass (goes straight to custom!)
+        if(objclass == 'LevelDefinition' && doneLevelDefinition == false){
+          doneLevelDefinition = true;
+          //Do special levelDefinition stuff
+        
+          //For module w/o data, check if it's settings (preset list), then events (json). If neither, it's custom.
+        } else {
+          //Everything here should be leftover code that isn't ran directly by the level, and isn't grouped into some other module.
+          //These should be in custom.
+          customCode['objects'].add(item);
+        }
       }
     });
 
@@ -149,12 +166,20 @@ class ProviderMainState extends ChangeNotifier {
     //Add events. This is ran now rather than when page is opened in order to check for errors when importing.
     eventBus.fire(CheckImportModuleCodeEvent());
 
-    if(ProviderMainState.global['nonElmImportWarn'].length > 0){
-      String errorMsg = ProviderMainState.global['nonElmImportWarn'].join(', ');
-      Get.defaultDialog(title: 'misc_importlevel_warn_header'.tr, middleText: "${'misc_importlevel_warn_desc'.tr}\n\n$errorMsg\n\n${'misc_importlevel_warn_desc2'.tr}", textCancel: 'generic_ok'.tr);
-      ProviderMainState.global['nonElmImportWarn'] = [];
-    }
+    void doStuff() async {
 
+      await Future.delayed(Duration(milliseconds: 500)); //Wait some time for firings to complete
+
+      if(ProviderMainState.global['nonElmImportWarn'].length > 0){
+        String errorMsg = ProviderMainState.global['nonElmImportWarn'].join(', ');
+        Get.defaultDialog(title: 'misc_importlevel_warn_header'.tr, middleText: "${'misc_importlevel_warn_desc'.tr}\n\n$errorMsg\n\n${'misc_importlevel_warn_desc2'.tr}", textCancel: 'generic_ok'.tr);
+        ProviderMainState.global['nonElmImportWarn'] = [];
+      }
+
+      eventBus.fire(RebuildPageEvent('!misc'));
+      print('rebuild?');
+    }
+    doStuff();
     //ProviderWaveState.importWaveCode(waveCodeToAdd: levelCode['objects']); //TO-DO CHANGE
   }
 
@@ -201,6 +226,7 @@ class ProviderMainState extends ChangeNotifier {
     };
 
     ProviderMiscState.getCodeShown;
+    eventBus.fire(RebuildPageEvent('misc'));
   }
 
   static const List jsonFileNames = ['modules_events', "modules_custom"];   //All file names for the jsons that specify module information w/o the .json
@@ -282,8 +308,11 @@ class _MyHomePageState extends State<MyHomePage> {
         // }
 
         //Obtain that json file!
+        debugPrint('Opened with Open-with! File content: $fileContent');
+
         ProviderMainState.global['isOpenWithImport'] = true;
         ProviderMiscState.importCodeWithOpen(fileContent: fileContent);
+
 
         setState(() {
         //Set page to misc page
@@ -324,11 +353,12 @@ class _MyHomePageState extends State<MyHomePage> {
         snackBar: const SnackBar(
           content: Text('Tap back again to quit the app!'),
         ), 
-        child: _pages[_currentIndex]),
+        child: IndexedStack(children: _pages, index: _currentIndex)),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.shifting,
         currentIndex: _currentIndex,
         onTap: (int index) {
+          primaryFocus!.unfocus();
           setState(() {
             _currentIndex = index;
           });
