@@ -39,7 +39,8 @@
             "#add_pf": {"type": "number", "display_text":"Additional PF: ", "integer": true, "input_range": "0.."},
             "#checkbox": {"type": "checkbox", "display_text": "yes or no", "default_bool": true, "true_value": true, "false_value": false},
 
-            "#huge_text_type_using_reeditor_edit_custom_code_with_this!!!": {"type": "text_large", "display_text":"Cool Text:", "default_text":"first text"}
+            "#huge_text_type_using_reeditor_edit_custom_code_with_this!!!": {"type": "text_large", "display_text":"Cool Text:", "default_text":"first text"},
+            "#": "ALSO make sure if I type \n or whatever in the code it doesn't show up as \\n. This is for everything not just reeditor edit"
         },
         "variables": {
             "#Automatic Variables": "default_aliases, wave_number[NOT ADDED, TO-DO], event_number",
@@ -143,6 +144,7 @@
             "aliases": {"type": "aliases", "display_text":"Aliases:"},
             "#some_number": {"type": "number", "display_text":"More Text:", "default_text":"second text"},
             "#combined_text": {"type": "none", "display_text": "!combined_text_variable"},
+            "huge_text": {"type": "code", "display_text":"Huge Text:", "default_text":"beig"},
 
             "L_textList": {"type": "list", "display_text":"Some List:", "cell_width": 100, "cell_height": 25, "header_width": 50, "header_height": 25,
                 "item": {"type": "text", "#default_text": "nnn", "#display_text": "there is no display text! L! Don't have one here, or else stuff will break."}, 
@@ -187,16 +189,7 @@
                 ],
                 "objclass": "NonExistentProps",
                 "objdata": {
-                    "#3": "A list of objects that contains item, row and column",
-                    "NamedlistOfMoreThings": [
-                        {
-                            "Item": "!L_textList{item}",
-                            "Row": "!L_textList{axis_row}",
-                            "Column": "!L_textList{axis_column}"
-                        }
-                    ],
-
-                    "#4": "A list of objects that contains row and list of items in that row",
+                    "beigtext": "!huge_text",
                     "NamedlistOfRows": "!!L_textList"
                 }
             }
@@ -236,7 +229,7 @@
         "icon": "misc_star",
         "inputs": {
             "#L_level_modules": {"type": "list", "display_text":"Level Modules:",
-                "item": {"type": "text"}, 
+                "item": {"type": "code"}, 
                 "axis_row": {"axis_type": "none", "size_range": "2.."},
                 "axis_column": {"axis_type": "none", "size_range": "2"}
             },
@@ -248,7 +241,7 @@
                 "axis_column": {"axis_type": "none", "size_range": "2"}
             },
             "L_raw_code": {"type": "list", "display_text":"Raw Code", 
-                "item": {"type": "text"}, 
+                "item": {"type": "code", "default_text": {"default_key": "default_value"}}, 
                 "axis_row": {"axis_type": "none", "size_range": "1..", "default_size": 3},
                 "axis_column": {"axis_type": "none", "size_range": "1..", "default_size": 1}
             }

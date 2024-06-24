@@ -1,14 +1,17 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 import 'package:get/get.dart';
 import 'package:flutter/scheduler.dart';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/services.dart'; 
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:auto_size_text_field/auto_size_text_field.dart';
+import 'package:json_editor/json_editor.dart';
 
 import 'main.dart';
 import 'util_functions.dart';
@@ -960,8 +963,6 @@ class ElmDynamicModuleForm<T extends GenericProviderState> extends StatelessWidg
     //Add input internal data used for importing level
     if (widget.value['internal_data']['objects'] != null && widget.value['internal_data']['objects'] != "" && widget.value['internal_data']['objects'].length > 0){
 
-      print('here ${widget.value['internal_data']['objects']}');
-
       //Each item should be a map, beacuse that's how PvZ2 works. If it is not, attempt to convert into one (custom code string likely.)
       //Also, maps are able to hold data, so that's 2 issues solved at once!
       //Otherwise, yeet
@@ -1081,6 +1082,16 @@ Widget createWidgetFromConfig(
       );
     case 'text':
       return TextInputWidget(
+        appState: appState,
+        widget: widget,
+        internal_name: internal_name,
+        path: path,
+        listItemDetails: listItemDetails,
+        display_text: configInput['display_text'],
+        default_text: configInput['default_text'],
+      );
+    case 'code':
+      return CodeInputWidget(
         appState: appState,
         widget: widget,
         internal_name: internal_name,
@@ -1589,6 +1600,212 @@ class TextInputWidget<T extends GenericProviderState> extends StatelessWidget {
           ),
         )
       ],
+    );
+  }
+}
+
+
+class CodeInputWidget<T extends GenericProviderState> extends StatelessWidget {
+  final T appState;
+  final ElmModuleList<T> widget;
+  final String internal_name;
+  final List path;
+  final Map<String, dynamic> listItemDetails;
+  String? display_text;
+  dynamic default_text;
+
+  CodeInputWidget({
+    required this.appState,
+    required this.widget,
+    required this.internal_name,
+    required this.path,
+    required this.listItemDetails,
+    required this.display_text,
+    required this.default_text,
+  }){
+    display_text = variableCheckString(input: display_text, widget: widget);
+    default_text = json.encode(variableCheckDynamic(input: default_text, widget: widget));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+
+    double _width = listItemDetails['cell_width'] != null ? listItemDetails['cell_width'] - 2 : 150;
+    double _height = listItemDetails['cell_height'] != null ? listItemDetails['cell_height'] - 2 : 25;
+    int _expectedLength = (_width * _height / 200).round();
+
+    //If null variables but NOT null input data, set variable to internal name, or default if blank
+    dynamic inputData = getNestedProperty(obj: widget.value['input_data'], path: path);
+    if(
+      inputData != null 
+      && getNestedProperty(obj: widget.value['variables'], path: path) == null
+    ){
+      if(inputData == ""){
+        setNestedProperty(obj: widget.value['variables'], path: path, value: default_text);
+      } else {
+        setNestedProperty(obj: widget.value['variables'], path: path, value: inputData);
+      }
+    }
+
+    //If null input data or null variables, set variable to default and input data to blank
+    //(Input data set is only necessary for lists)
+    if(
+      getNestedProperty(obj: widget.value['input_data'], path: path) == null 
+      ||getNestedProperty(obj: widget.value['variables'], path: path) == null 
+    ){
+      setNestedProperty(obj: widget.value['variables'], path: path, value: default_text);
+      setNestedProperty(obj: widget.value['input_data'], path: path, value: '');
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(display_text!),
+        SizedBox(
+          //Width, height, minFontSize, maxLine and maxlength carefully chosen to prevent freeze
+          width: _width,
+          height: _height,
+          child: Focus(
+            onFocusChange: (isFocused) {
+              if (!isFocused){
+                ElmModuleList.updateAllModuleUI(appState: appState);
+              }
+            },
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color.fromARGB(255, 244, 200, 255),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                padding: EdgeInsets.fromLTRB(5, 0, 5, 0),
+                side: BorderSide(
+                  color: Color.fromARGB(78, 10, 53, 117), // Dark blue outline color
+                  width: 1, // Outline thickness
+                ),
+              ),
+              onPressed: (){
+                Get.to(ElmCodeEditor(appState: appState, display_text: display_text!, widget: widget, internal_name: internal_name, path: path, default_text: default_text!));
+              }, 
+              child: AutoSizeText(
+                //This stupid long line takes in the first few _expectedLength characters (or less if there isn't _expectedLength) and adds "..." at the back. If empty, puts "Empty".
+                getNestedProperty(obj: widget.value['input_data'], path: path) == "" ? default_text
+                  : getNestedProperty(obj: widget.value['input_data'], path: path).length < _expectedLength ? 
+                      getNestedProperty(obj: widget.value['input_data'], path: path) :
+                      '${getNestedProperty(obj: widget.value['input_data'], path: path).substring(0, _expectedLength)}...',
+                textAlign: TextAlign.center,
+                minFontSize: 8,
+                maxLines: 3,
+              )
+            )
+          ),
+        )
+      ],
+    );
+  }
+}
+
+class ElmCodeEditor extends StatefulWidget {
+
+  final ElmModuleList widget;
+  final String internal_name;
+  final List path;
+  final String default_text;
+  String display_text;
+  final GenericProviderState appState;
+
+  ElmCodeEditor({
+    super.key,
+    required this.widget,
+    required this.internal_name,
+    required this.path,
+    required this.default_text,
+    required this.appState,
+    required this.display_text,
+  }){
+    if(display_text == ""){
+      display_text = "Edit Code";
+    }
+  }
+
+  @override
+  State<ElmCodeEditor> createState() => _ElmCodeEditorState();
+}
+
+class _ElmCodeEditorState extends State<ElmCodeEditor> {
+  @override
+  Widget build(BuildContext context) {
+
+    bool canUpdate = false; //Prevent update when loaded as it causes error
+
+    return Scaffold(
+      backgroundColor: const Color.fromARGB(255, 225, 242, 255),
+      bottomSheet: Container(
+        decoration: BoxDecoration(color: const Color.fromARGB(255, 175, 214, 249)),
+        width: MediaQuery.of(context).size.width,
+        height: 20,
+        child: AutoSizeText('util_module_code_message_waitwarn'.tr,
+          textAlign: TextAlign.center,
+          minFontSize: 8,
+          maxLines: 3,
+        )
+      ),
+      appBar: AppBar(
+        toolbarHeight: 50,
+        title: Text(widget.display_text),
+        backgroundColor: Color.fromARGB(255, 175, 214, 249),
+        foregroundColor: Color.fromARGB(169, 3, 35, 105),
+        actions: [
+          Row(
+            children: [
+              ElmIconButton(iconData: Icons.delete, iconColor: widget.appState.themeColour, buttonHeight: 30, onPressFunctions: (){
+                setState(() {
+                  setNestedProperty(obj: widget.widget.value['input_data'], path: widget.path, value: "");
+                  ElmModuleList.updateAllModuleUI(appState: widget.appState);
+                });
+              }),
+              SizedBox(
+                width: 135,
+                height: 30,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    fixedSize: Size.fromHeight(25),
+                    minimumSize: Size.fromHeight(25),
+                    maximumSize: Size.fromHeight(25),
+                    padding: EdgeInsets.fromLTRB(5, 0, 5, 0),
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      setNestedProperty(obj: widget.widget.value['input_data'], path: widget.path, value: widget.default_text);
+                      ElmModuleList.updateAllModuleUI(appState: widget.appState);
+                    });
+                  },
+                  child: Row(children: [Icon(Icons.add, color: widget.appState.themeColour), AutoSizeText('util_module_code_message_setdefault'.tr)])
+                ),
+              ),
+            ],
+          ),],
+      ),
+      body: JsonEditorTheme(
+        themeData: JsonEditorThemeData.defaultTheme(),
+        child: JsonEditor.string(
+          openDebug: false,
+          jsonString: getNestedProperty(obj: widget.widget.value['input_data'], path: widget.path),
+          onValueChanged: (inputValue) {
+            print('edity');
+            String convertedValue = inputValue.toString();
+            setNestedProperty(obj: widget.widget.value['input_data'], path: widget.path, value: convertedValue);
+            if(convertedValue.toString() == ''){
+              setNestedProperty(obj: widget.widget.value['variables'], path: widget.path, value: widget.default_text);
+            } else {
+              setNestedProperty(obj: widget.widget.value['variables'], path: widget.path, value: convertedValue);
+            }
+            if(canUpdate){
+              ElmModuleList.updateAllModuleUI(appState: widget.appState);
+            } else {
+              canUpdate = true;
+            }
+          },
+        ),
+      ),
     );
   }
 }

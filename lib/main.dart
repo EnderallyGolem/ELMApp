@@ -113,7 +113,7 @@ class ProviderMainState extends ChangeNotifier {
   /// Resets level code to empty.
   static Future<void> resetLevelCode() async {
     debugPrint('Resetting level code...');
-    dynamic eventObj = await loadJson(path: 'assets/json/templatelevel.json');
+    dynamic eventObj = await loadJson(path: 'assets/json/templatelevel.json', backspaceFix: true);
     importLevelCode(importedCode: eventObj);
     //Don't need updateLevelCode(); as it'll already update after importing
   }

@@ -25,7 +25,7 @@ class ProviderMiscState extends ChangeNotifier {
 
   static void getCodeShown(){
     levelCode = ProviderMainState.levelCode;
-    levelJson = jsonEncoder.convert(levelCode['full']);
+    levelJson = jsonEncoder.convert(levelCode['full']).replaceAll('\\\\', '\\');
   }
 
   static void importCodeWithOpen({required String fileContent}){
@@ -147,7 +147,7 @@ void _importFile({required dynamic context, required ProviderMainState appMainSt
       PlatformFile file = result.files.single;
       String fileContent = utf8.decode(file.bytes!);
       //String importedFileDirectory = file.path!;
-      dynamic importedFile = jsonDecode(fileContent);
+      dynamic importedFile = jsonDecode(fileContent.replaceAll('\\', '\\\\'));
       importedFileName = file.name;
       ProviderMainState.importLevelCode(importedCode: importedFile);
       appMiscState.updateMiscState();
@@ -165,7 +165,7 @@ void _importFile({required dynamic context, required ProviderMainState appMainSt
 
 void _importFileWithOpen({required String fileContent}) async {
   try{
-    dynamic importedFile = jsonDecode(fileContent);
+    dynamic importedFile = jsonDecode(fileContent.replaceAll('\\', '\\\\'));
 
     ProviderMainState.importLevelCode(importedCode: importedFile);
     print('Import level with code $importedFile');

@@ -9,10 +9,17 @@ import 'package:base_x/base_x.dart';
 ///
 /// Returns json file (as an obj). This is an async function! Requires async + await.
 /// 
-/// [path] = Path of json. Eg: 'assets/json/default/${filename}.json'
+/// [path] = Path of json. Eg: `'assets/json/default/${filename}.json'`
+/// 
+/// Optional [backspaceFix] = If true, changes \ to \\. \n => \\n
 ///
-Future loadJson({required String path}) async {
+Future loadJson({required String path, bool backspaceFix = false}) async {
   String data = await rootBundle.loadString(path);
+
+  if(backspaceFix){
+    data = data.replaceAll('\\', '\\\\');
+  }
+
   var jsonResult = json.decode(data);
   debugPrint('Loaded json at $path: $jsonResult');
   return jsonResult;
@@ -51,7 +58,7 @@ dynamic convertStringToMap(String input) {
 /// 
 /// [obj] : The object. Probably appState.elmModuleListArr[moduleIndex].value
 /// 
-/// [path] : Array with each item being the path. Eg: ['variables', 'aliases'] or ['test', 0]
+/// [path] : Array with each item being the path. Eg: `['variables', 'aliases']` or `['test', 0]`
 /// 
 /// [value] : Dynamic value to be set at that path
 ///
@@ -111,7 +118,7 @@ void setNestedProperty({required dynamic obj, required List<dynamic> path, requi
 /// 
 /// [obj] : The object.
 /// 
-/// [path] : Array with each item being the path. Eg: ['variables', 'aliases'] or ['test', 0]
+/// [path] : Array with each item being the path. Eg: `['variables', 'aliases'] or ['test', 0]`
 /// 
 /// Returns the value at the specified path. Returns [invalidReturn] if path/object is invalid (null as default).
 ///
@@ -391,15 +398,17 @@ void iterateAndModifyNestedMap({required dynamic nestedItem, required dynamic Fu
 ///
 /// Takes in a list of lists, and iterates every combination of values between each lists.
 /// 
-/// [lists] is a 2D list. For instance, [[1,2], [3,4], [5,6]] will output [1,3,5], [1,3,6], [1,4,5], ... (each of this is 1 [combination])
+/// [lists] is a 2D list. For instance, `[[1,2], [3,4], [5,6]]` will output `[1,3,5], [1,3,6], [1,4,5], ...` (each of this is 1 [combination])
 /// 
 /// [callback] is the callback function. It takes in input [combination].
 /// 
+/// ```
 ///   List<List<dynamic>> [lists] = [list1, list2, list3]
 /// 
 ///   multiDimensionalLoop(lists, (combination) {
 ///     print(combination.join(''));
 ///   });
+///```
 ///
 void multiDimensionalLoop(List<List<dynamic>> lists, Function(List<dynamic>) callback) {
   void helper(List<dynamic> currentCombination, int depth) {
@@ -424,12 +433,13 @@ void multiDimensionalLoop(List<List<dynamic>> lists, Function(List<dynamic>) cal
 /// 
 /// [callback] is the callback function. It takes in input [combination].
 /// 
+/// ```
 ///   List<List<dynamic>> [map] = {"key1": list1, "key2": list2, "key3": list3}
 /// 
 ///   multiDimensionalLoop(lists, (combination) {
 ///     print('${combination['key1']} is the first item in ${combination.values.join('')}')
 ///   });
-///
+///```
 void multiDimensionalLoopMap(Map<String, List<dynamic>> map, Function(Map<String, dynamic>) callback) {
   List<String> keys = map.keys.toList();
 
@@ -455,6 +465,7 @@ void multiDimensionalLoopMap(Map<String, List<dynamic>> map, Function(Map<String
 /// 
 /// [map] is a map of map of lists. For instance, 
 /// 
+/// ```
 /// [map] = {
 ///     'var1': {
 ///       'axis_row': [1, 2, 3, 4],
@@ -464,14 +475,16 @@ void multiDimensionalLoopMap(Map<String, List<dynamic>> map, Function(Map<String
 ///       'axis_row': ['a', 'b', 'c']
 ///     }
 ///   };
+/// ```
 /// 
 ///   [callback] is the callback function. It takes in input [combination] and [indices].
 /// 
+/// ```
 ///   multiDimensionalLoop(lists, (combination) {
 ///     print('${combination['var1']['axis_row']} is the first item in ${combination.values.expand((innerMap) => innerMap.values).join('')}');
 ///     print('${combination['var1']['axis_row']} has index ${indices['var1']['axis_row']}.');
 ///   });
-///
+///```
 void multiDimensionalLoopDoubleMap(
     Map<String, Map<String, List<dynamic>>> map,
     Function(Map<String, Map<String, dynamic>>, Map<String, Map<String, int>>) callback) {
@@ -558,7 +571,7 @@ List<dynamic> flatten(List<List<dynamic>> matrix) {
 /// 
 /// [matrix] = 2D List
 /// 
-/// [[1, 2, 3], [4, 5, 6], [7, 8, 9]] is transposed into [[1, 4, 7], [2, 5, 8], [3, 6, 9]].
+/// `[[1, 2, 3], [4, 5, 6], [7, 8, 9]]` is transposed into `[[1, 4, 7], [2, 5, 8], [3, 6, 9]]`.
 ///
 List<List<dynamic>> transpose(List<List<dynamic>> matrix) {
   if (matrix.isEmpty) return [];
@@ -581,7 +594,8 @@ List<List<dynamic>> transpose(List<List<dynamic>> matrix) {
   return transposed;
 }
 
-var basex = BaseXCodec(" ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#\$%^&*()-_=+[{]}\\|;:'\",<.>/?`~¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ");
+//Does not have \ and "
+var basex = BaseXCodec(" ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#\$%^&*()-_=+[{]}|;:',<.>/?`~¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ");
 
 // Function to convert nested list/map to a shortened string using MessagePack
 String encodeNestedStructure(dynamic nestedStructure) {
