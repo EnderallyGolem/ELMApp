@@ -147,7 +147,7 @@ class ProviderMainState extends ChangeNotifier {
         String? objclass = item['objclass']; //String? as possible that item has no objclass (goes straight to custom!)
         if(objclass == 'LevelDefinition' && doneLevelDefinition == false){
           doneLevelDefinition = true;
-          //Do special levelDefinition stuff
+          //Do special levelDefinition stuff. TO-DO.
         
           //For module w/o data, check if it's settings (preset list), then events (json). If neither, it's custom.
         } else {
@@ -166,7 +166,7 @@ class ProviderMainState extends ChangeNotifier {
     //Add events. This is ran now rather than when page is opened in order to check for errors when importing.
     eventBus.fire(CheckImportModuleCodeEvent());
 
-    void doStuff() async {
+    void doAsyncStuff() async {
 
       await Future.delayed(Duration(milliseconds: 500)); //Wait some time for firings to complete
 
@@ -179,8 +179,7 @@ class ProviderMainState extends ChangeNotifier {
       eventBus.fire(RebuildPageEvent('!misc'));
       print('rebuild?');
     }
-    doStuff();
-    //ProviderWaveState.importWaveCode(waveCodeToAdd: levelCode['objects']); //TO-DO CHANGE
+    doAsyncStuff();
   }
 
   /// 

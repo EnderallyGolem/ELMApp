@@ -968,10 +968,10 @@ class ElmDynamicModuleForm<T extends GenericProviderState> extends StatelessWidg
       //Otherwise, yeet
       for(int index = 0; index < widget.value['internal_data']['objects'].length; index++){
         //If it is a string and the sides are {}, convert it map. Or at least try to anyway.
-        if(widget.value['internal_data']['objects'][index] is! Map){
+        if(widget.value['internal_data']['objects'][index] is String){
           widget.value['internal_data']['objects'][index] = convertStringToMap(widget.value['internal_data']['objects'][index]);
           //if it can't be converted to map, YEET.
-          if(widget.value['internal_data']['objects'][index] is! Map){
+          if(widget.value['internal_data']['objects'][index] is! Map<dynamic, dynamic>){
             (widget.value['internal_data']['objects'] as List).removeAt(index);
             index--;
           }
@@ -1098,7 +1098,7 @@ Widget createWidgetFromConfig(
         path: path,
         listItemDetails: listItemDetails,
         display_text: configInput['display_text'],
-        default_text: configInput['default_text'],
+        default_object: configInput['default_object'],
       );
     case 'list':
       return ListInputWidget(
@@ -1337,7 +1337,7 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
                       columnNum = columnNum! + 1;
                       widget.value['input_header_data'][internal_name]['columnNum'] = columnNum!;
                       for(int rowIndex = 0; rowIndex < rowNum!; rowIndex++){
-                        widget.value['variables'][internal_name][rowIndex].add('');
+                        widget.value['variables'][internal_name][rowIndex].add(null);
                       }
                       updateHeaderData(rowHeaderValues, rowNum!, columnHeaderValues, columnNum!);
                       ElmModuleList.updateAllModuleUI(appState: appState);
@@ -1392,7 +1392,7 @@ class ListInputWidget<T extends GenericProviderState> extends StatelessWidget {
                     onPressFunctions: (){
                       rowNum = rowNum! + 1;
                       widget.value['input_header_data'][internal_name]['rowNum'] = rowNum!;
-                      widget.value['variables'][internal_name].add(List<String>.generate(columnNum!, (index) => ""));
+                      widget.value['variables'][internal_name].add(List<dynamic>.generate(columnNum!, (index) => null));
                       updateHeaderData(rowHeaderValues, rowNum!, columnHeaderValues, columnNum!);
                       ElmModuleList.updateAllModuleUI(appState: appState);
                     },
@@ -1612,7 +1612,7 @@ class CodeInputWidget<T extends GenericProviderState> extends StatelessWidget {
   final List path;
   final Map<String, dynamic> listItemDetails;
   String? display_text;
-  dynamic default_text;
+  Map<dynamic, dynamic>? default_object;
 
   CodeInputWidget({
     required this.appState,
@@ -1621,10 +1621,11 @@ class CodeInputWidget<T extends GenericProviderState> extends StatelessWidget {
     required this.path,
     required this.listItemDetails,
     required this.display_text,
-    required this.default_text,
+    required this.default_object,
   }){
     display_text = variableCheckString(input: display_text, widget: widget);
-    default_text = json.encode(variableCheckDynamic(input: default_text, widget: widget));
+    default_object ??= {};
+    default_object = variableCheckDynamic(input: default_object, widget: widget);
   }
 
   @override
@@ -1635,13 +1636,14 @@ class CodeInputWidget<T extends GenericProviderState> extends StatelessWidget {
     int _expectedLength = (_width * _height / 200).round();
 
     //If null variables but NOT null input data, set variable to internal name, or default if blank
-    dynamic inputData = getNestedProperty(obj: widget.value['input_data'], path: path);
+    Map<dynamic, dynamic>? inputData = getNestedProperty(obj: widget.value['input_data'], path: path);
+
     if(
       inputData != null 
       && getNestedProperty(obj: widget.value['variables'], path: path) == null
     ){
       if(inputData == ""){
-        setNestedProperty(obj: widget.value['variables'], path: path, value: default_text);
+        setNestedProperty(obj: widget.value['variables'], path: path, value: default_object);
       } else {
         setNestedProperty(obj: widget.value['variables'], path: path, value: inputData);
       }
@@ -1653,8 +1655,8 @@ class CodeInputWidget<T extends GenericProviderState> extends StatelessWidget {
       getNestedProperty(obj: widget.value['input_data'], path: path) == null 
       ||getNestedProperty(obj: widget.value['variables'], path: path) == null 
     ){
-      setNestedProperty(obj: widget.value['variables'], path: path, value: default_text);
-      setNestedProperty(obj: widget.value['input_data'], path: path, value: '');
+      setNestedProperty(obj: widget.value['variables'], path: path, value: default_object);
+      setNestedProperty(obj: widget.value['input_data'], path: path, value: {});
     }
 
     return Row(
@@ -1683,14 +1685,18 @@ class CodeInputWidget<T extends GenericProviderState> extends StatelessWidget {
                 ),
               ),
               onPressed: (){
-                Get.to(ElmCodeEditor(appState: appState, display_text: display_text!, widget: widget, internal_name: internal_name, path: path, default_text: default_text!));
+                Get.dialog(
+                  ElmCodeEditor(appState: appState, display_text: display_text!, widget: widget, internal_name: internal_name, path: path, default_object: default_object!),
+                );
               }, 
               child: AutoSizeText(
                 //This stupid long line takes in the first few _expectedLength characters (or less if there isn't _expectedLength) and adds "..." at the back. If empty, puts "Empty".
-                getNestedProperty(obj: widget.value['input_data'], path: path) == "" ? default_text
-                  : getNestedProperty(obj: widget.value['input_data'], path: path).length < _expectedLength ? 
-                      getNestedProperty(obj: widget.value['input_data'], path: path) :
-                      '${getNestedProperty(obj: widget.value['input_data'], path: path).substring(0, _expectedLength)}...',
+                getNestedProperty(obj: widget.value['input_data'], path: path) == {} ?
+                  (default_object!.length < _expectedLength ? default_object.toString() : '${default_object.toString().substring(0, _expectedLength)}...')
+
+                  : getNestedProperty(obj: widget.value['input_data'], path: path).toString().length < _expectedLength ? 
+                      getNestedProperty(obj: widget.value['input_data'], path: path).toString() :
+                      '${getNestedProperty(obj: widget.value['input_data'], path: path).toString().substring(0, _expectedLength)}...',
                 textAlign: TextAlign.center,
                 minFontSize: 8,
                 maxLines: 3,
@@ -1708,7 +1714,7 @@ class ElmCodeEditor extends StatefulWidget {
   final ElmModuleList widget;
   final String internal_name;
   final List path;
-  final String default_text;
+  final Map<dynamic, dynamic> default_object;
   String display_text;
   final GenericProviderState appState;
 
@@ -1717,7 +1723,7 @@ class ElmCodeEditor extends StatefulWidget {
     required this.widget,
     required this.internal_name,
     required this.path,
-    required this.default_text,
+    required this.default_object,
     required this.appState,
     required this.display_text,
   }){
@@ -1731,23 +1737,42 @@ class ElmCodeEditor extends StatefulWidget {
 }
 
 class _ElmCodeEditorState extends State<ElmCodeEditor> {
+
+  bool firstOpen = false;
+
   @override
-  Widget build(BuildContext context) {
-
-    bool canUpdate = false; //Prevent update when loaded as it causes error
-
-    return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 225, 242, 255),
-      bottomSheet: Container(
-        decoration: BoxDecoration(color: const Color.fromARGB(255, 175, 214, 249)),
-        width: MediaQuery.of(context).size.width,
-        height: 20,
-        child: AutoSizeText('util_module_code_message_waitwarn'.tr,
+  void initState(){
+    super.initState;
+    firstOpen = true;
+    WidgetsBinding.instance.addPostFrameCallback((_){
+      Get.rawSnackbar(
+        padding: EdgeInsets.fromLTRB(5, 0, 5, 0),
+        backgroundColor: const Color.fromARGB(255, 175, 214, 249),
+        duration: Duration(milliseconds: 5000),
+        animationDuration: Duration(milliseconds: 300),
+        messageText: AutoSizeText('util_module_code_message_waitwarn'.tr,
+          maxFontSize: 14,
+          minFontSize: 5,
           textAlign: TextAlign.center,
-          minFontSize: 8,
-          maxLines: 3,
-        )
-      ),
+          style: TextStyle(
+            color: Colors.black,
+          ),
+        ),
+      );
+    });
+  }
+
+  void dispose(){
+    super.dispose();
+    try {
+      Get.closeAllSnackbars();
+    } catch (e) {}
+  }
+
+  Widget build(BuildContext context) {
+    return Scaffold(
+      key: UniqueKey(),
+      backgroundColor: const Color.fromARGB(255, 225, 242, 255),
       appBar: AppBar(
         toolbarHeight: 50,
         title: Text(widget.display_text),
@@ -1758,27 +1783,30 @@ class _ElmCodeEditorState extends State<ElmCodeEditor> {
             children: [
               ElmIconButton(iconData: Icons.delete, iconColor: widget.appState.themeColour, buttonHeight: 30, onPressFunctions: (){
                 setState(() {
-                  setNestedProperty(obj: widget.widget.value['input_data'], path: widget.path, value: "");
+                  setNestedProperty(obj: widget.widget.value['input_data'], path: widget.path, value: {});
                   ElmModuleList.updateAllModuleUI(appState: widget.appState);
                 });
               }),
-              SizedBox(
-                width: 135,
-                height: 30,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    fixedSize: Size.fromHeight(25),
-                    minimumSize: Size.fromHeight(25),
-                    maximumSize: Size.fromHeight(25),
-                    padding: EdgeInsets.fromLTRB(5, 0, 5, 0),
+              Offstage(
+                offstage: widget.default_object.isEmpty,
+                child: SizedBox(
+                  width: 135,
+                  height: 30,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      fixedSize: Size.fromHeight(25),
+                      minimumSize: Size.fromHeight(25),
+                      maximumSize: Size.fromHeight(25),
+                      padding: EdgeInsets.fromLTRB(5, 0, 5, 0),
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        setNestedProperty(obj: widget.widget.value['input_data'], path: widget.path, value: widget.default_object);
+                        ElmModuleList.updateAllModuleUI(appState: widget.appState);
+                      });
+                    },
+                    child: Row(children: [Icon(Icons.add, color: widget.appState.themeColour), AutoSizeText('util_module_code_message_setdefault'.tr)])
                   ),
-                  onPressed: () {
-                    setState(() {
-                      setNestedProperty(obj: widget.widget.value['input_data'], path: widget.path, value: widget.default_text);
-                      ElmModuleList.updateAllModuleUI(appState: widget.appState);
-                    });
-                  },
-                  child: Row(children: [Icon(Icons.add, color: widget.appState.themeColour), AutoSizeText('util_module_code_message_setdefault'.tr)])
                 ),
               ),
             ],
@@ -1786,22 +1814,60 @@ class _ElmCodeEditorState extends State<ElmCodeEditor> {
       ),
       body: JsonEditorTheme(
         themeData: JsonEditorThemeData.defaultTheme(),
-        child: JsonEditor.string(
+        child: JsonEditor.object(
           openDebug: false,
-          jsonString: getNestedProperty(obj: widget.widget.value['input_data'], path: widget.path),
+          object: getNestedProperty(obj: widget.widget.value['input_data'], path: widget.path) as Map<dynamic, dynamic>,
           onValueChanged: (inputValue) {
-            print('edity');
-            String convertedValue = inputValue.toString();
-            setNestedProperty(obj: widget.widget.value['input_data'], path: widget.path, value: convertedValue);
-            if(convertedValue.toString() == ''){
-              setNestedProperty(obj: widget.widget.value['variables'], path: widget.path, value: widget.default_text);
+            if (inputValue.toObject() is Map<dynamic, dynamic>) {
+              setNestedProperty(obj: widget.widget.value['input_data'], path: widget.path, value: inputValue.toObject());
+              if(inputValue.toJson().isEmpty){
+                setNestedProperty(obj: widget.widget.value['variables'], path: widget.path, value: widget.default_object);
+              } else {
+                setNestedProperty(obj: widget.widget.value['variables'], path: widget.path, value: inputValue.toObject());
+              }
+              WidgetsBinding.instance.addPostFrameCallback((_){
+                ElmModuleList.updateAllModuleUI(appState: widget.appState);
+                if (firstOpen == false) {
+                  Get.closeAllSnackbars();
+                  Get.rawSnackbar(
+                    padding: EdgeInsets.fromLTRB(5, 0, 5, 0),
+                    backgroundColor: const Color.fromARGB(255, 175, 214, 249),
+                    duration: Duration(milliseconds: 2000),
+                    animationDuration: Duration(milliseconds: 300),
+                    messageText: AutoSizeText('util_module_code_message_saved'.tr,
+                      maxLines: 1,
+                      maxFontSize: 14,
+                      minFontSize: 5,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.black,
+                      ),
+                    ),
+                  );
+                } else {
+                  firstOpen = false;
+                }
+              });
             } else {
-              setNestedProperty(obj: widget.widget.value['variables'], path: widget.path, value: convertedValue);
-            }
-            if(canUpdate){
-              ElmModuleList.updateAllModuleUI(appState: widget.appState);
-            } else {
-              canUpdate = true;
+              if (firstOpen == false) {
+                Get.closeAllSnackbars();
+                Get.rawSnackbar(
+                  padding: EdgeInsets.fromLTRB(5, 0, 5, 0),
+                  backgroundColor: const Color.fromARGB(255, 175, 214, 249),
+                  duration: Duration(milliseconds: 5000),
+                  animationDuration: Duration(milliseconds: 300),
+                  messageText: AutoSizeText('util_module_code_message_notmap'.tr,
+                    maxFontSize: 14,
+                    minFontSize: 5,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.black,
+                    ),
+                  ),
+                );
+              } else {
+                firstOpen = false;
+              }
             }
           },
         ),

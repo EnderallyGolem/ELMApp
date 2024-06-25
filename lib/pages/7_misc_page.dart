@@ -104,11 +104,11 @@ class _Page_MiscState extends State<Page_Misc> {
                 onPressed: () {
                   Get.defaultDialog(title: 'misc_resetlevel_warning_title'.tr, middleText: 'misc_resetlevel_warning_desc'.tr, textCancel: 'Cancel'.tr, textConfirm: 'Confirm'.tr,
                   onConfirm: (){
-                    void doStuff() async {
+                    void doAsyncStuff() async {
                       await ProviderMainState.resetLevelCode();
                       appMiscState.updateMiscState(); //Ensure above is done before this runs
                     }
-                    doStuff();
+                    doAsyncStuff();
                     Get.back();
                   });
                 },
@@ -154,11 +154,11 @@ void _importFile({required dynamic context, required ProviderMainState appMainSt
       ProviderMainState.global['isOpenWithImport'] == false;
     } catch (e) {
       Get.defaultDialog(title: 'generic_error'.tr, middleText: "${'misc_importlevel_error_desc'.tr}\n\n$e", textCancel: 'generic_ok'.tr);
-      void doStuff() async {
+      void doAsyncStuff() async {
         await ProviderMainState.resetLevelCode();
         appMiscState.updateMiscState(); //Ensure above is done before this runs
       }
-      doStuff();
+      doAsyncStuff();
     }
   }
 }

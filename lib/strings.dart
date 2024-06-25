@@ -28,6 +28,8 @@ class ElmStrings extends Translations {
           'util_default_module_message': 'Select a module!',
           'util_module_code_message_setdefault': 'Set to default',
           'util_module_code_message_waitwarn': 'After editing, wait a second before closing for it to save!',
+          'util_module_code_message_notmap': 'Code cannot be saved - it must be surrounded with {}',
+          'util_module_code_message_saved': 'Code saved!',
 
           'waves_wave': 'Wave',
           'waves_addwave': 'Add Wave',
