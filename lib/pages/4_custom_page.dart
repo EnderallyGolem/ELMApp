@@ -13,24 +13,25 @@ class ProviderCustomState extends ChangeNotifier implements GenericProviderState
   @override Color themeColour = Color.fromARGB(255, 58, 104, 183); //Colour used by UI
   @override bool isVertical = true; //If modules extend vertically down or horizontally right
   @override Map<String, bool> enabledButtons = //Change enabled buttons. extra contains all disabled buttons.
-    {'minimise': false, 'shiftup': false, 'shiftdown': false, 'copy': false, 'delete': true, 'add': true, 'extra': true}; //TO-DO: Button for copying event into another wave
+    {'minimise': false, 'shiftup': false, 'shiftdown': false, 'copy': false, 'delete': true, 'add': true, 'extra': true}; //TO-DO: Button for copying event into another wave (not new event)
   @override String moduleJsonFileName = 'modules_custom';
-  @override VoidCallback? onNavigateToTargetPage;
 
+  @override VoidCallback? onNavigateToTargetPage;
   @override List<ElmModuleList> elmModuleListArr = [];
   @override GlobalKey<AnimatedListState> animatedModuleListKey = GlobalKey<AnimatedListState>();
   @override bool runForFirstTime = true;
   @override bool isImportingModules = false;
+  @override bool allowUpdateModuleState = true;
 
   // Updates main level code
   @override void updateModuleState(){
-    updateModuleCodeInMain(elmModuleListArr: elmModuleListArr);     //Updates module code in main.dart
-    ProviderMainState.updateLevelCode();                            //Updates the full code in main.dart
+    updateModuleCodeInMain(elmModuleListArr: elmModuleListArr); //Updates module code in main.dart
+    ProviderMainState.updateLevelCode(); //Updates the full code in main.dart
   }
 
   // Updates UI
   @override void updateModuleUI(){
-    notifyListeners();                                              //Updates the displayed module UI state
+    notifyListeners();  //Updates the displayed module UI state
   }
 
   // Generate the updated waveCode, then updates the waveCode in main.dart with it
@@ -51,13 +52,13 @@ class ProviderCustomState extends ChangeNotifier implements GenericProviderState
         moduleCode["waveModules"] = [...moduleCode["waveModules"], ...elmModuleListArr[moduleIndex].value['internal_data']['waveModules']];
       }
     }
-    ProviderMainState.customCode = moduleCode;
+    ProviderMainState.customCode = moduleCode; //Change this
   }
 
   // Imports code from main.
   @override void checkImportModuleCode(){
 
-    dynamic codeToAdd = ProviderMainState.customCode;
+    dynamic codeToAdd = ProviderMainState.customCode; //Change this
     isImportingModules = true;
 
     if(codeToAdd['importCheck'] == true){
@@ -103,7 +104,6 @@ class ProviderCustomState extends ChangeNotifier implements GenericProviderState
               //Find if keyMap is equal to any of the inputs. If so, set level module value as input's currentValue
               for(dynamic inputEntry in jsonFileModule?['inputs'].entries){
                 if(inputEntry.key == keyMap){
-                  print('Set $currentValue > input_data > ${inputEntry.key} to $value');
                   setNestedProperty(obj: currentValue, path: ['input_data', inputEntry.key], value: value);
                 }
               }
@@ -138,12 +138,7 @@ class ProviderCustomState extends ChangeNotifier implements GenericProviderState
               value = obtainValueFromCode(moduleName: moduleName, moduleObject: moduleCodeToAdd?[moduleIndex], jsonFile: jsonFile); //Obtain the direct-input values
             } else {
               //Null - Default to 'custom_code'.
-              print('aeiou');
-              print(moduleCodeToAdd?[moduleIndex]);
-
               String jsonToAdd = jsonEncode(moduleCodeToAdd?[moduleIndex]);
-
-              print(jsonToAdd);
 
               value = {
                 'module_dropdown_list': {
@@ -211,7 +206,6 @@ class _Page_CustomState extends State<Page_Custom> {
       eventBus.on<RebuildPageEvent>().listen((event) {
         if (event.allExcept && event.pageToRebuild != '!custom' || event.pageToRebuild == 'custom'){
           appState.updateModuleUI();
-          debugPrint('custom rebuild');
         }
       });
     }

@@ -4,7 +4,7 @@ class ElmStrings extends Translations {
   @override
   Map<String, Map<String, String>> get keys => {
         'en': {
-          'page_waves': 'Waves',
+          'page_wave': 'Waves',
           'page_inital': 'Initial',
           'page_setting': 'Settings',
           'page_custom': 'Custom',
@@ -31,10 +31,10 @@ class ElmStrings extends Translations {
           'util_module_code_message_notmap': 'Code cannot be saved - it must be surrounded with {}',
           'util_module_code_message_saved': 'Code saved!',
 
-          'waves_wave': 'Wave',
-          'waves_addwave': 'Add Wave',
-          'waves_deletewave_warning_title': 'Delete Wave?',
-          'waves_deletewave_warning_desc': 'Are you sure you want to delete this wave?',
+          'wave_wave': 'Wave',
+          'wave_addwave': 'Add Wave',
+          'wave_deletewave_warning_title': 'Delete Wave?',
+          'wave_deletewave_warning_desc': 'Are you sure you want to delete this wave?',
 
           
           'custom_addcode': 'Add Code',

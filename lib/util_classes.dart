@@ -16,6 +16,82 @@ import 'package:json_editor/json_editor.dart';
 import 'main.dart';
 import 'util_functions.dart';
 
+
+//
+// This isn't used because I couldn't find a way to make it not jank
+// Updating modules midway without causing looping errors and what not is too difficult
+//
+
+/// A stack-based class to manage undo and redo functionality.
+/// 
+/// Set callback functions [addItemFunction], which runs when a function is added with class.add([item]),
+/// [undoFunction], when class.undo() is ran, and [redoFunction], which runs when class.redo() is ran.
+/// 
+/// All 3 functions take [item] as a parameter. (The item is stored in the stack.) 
+/// 
+/// Optional: An initial [appChangeStack] can be set.
+/// Optional: The maximum stack size [maxStackSize] can be set.
+class UndoStack {
+  List<dynamic> appChangeStack;
+  int appChangeStackIndex;
+  int? maxStackSize;
+  bool canRedo;
+  bool canUndo;
+
+  final Function(dynamic item) addItemFunction;
+  final Function(dynamic item) undoFunction;
+  final Function(dynamic item) redoFunction;
+
+  UndoStack({
+    List<dynamic>? initialStack,
+    this.maxStackSize,
+    required this.addItemFunction,
+    required this.undoFunction,
+    required this.redoFunction,
+  }) : appChangeStack = initialStack ?? [],
+        appChangeStackIndex = initialStack != null ? initialStack.length - 1 : -1,
+        canRedo = false,
+        canUndo = initialStack != null && initialStack.isNotEmpty;
+
+  void add(dynamic newItem) {
+    appChangeStack.length = appChangeStackIndex + 1;
+    appChangeStack.add(newItem);
+    appChangeStackIndex++;
+    addItemFunction(newItem);
+    canUndo = true;
+    canRedo = false;
+
+    //If stack size exceeds max, time to shrink it!
+    if(maxStackSize != null && appChangeStackIndex >= maxStackSize!){
+      appChangeStackIndex--;
+      appChangeStack.removeAt(0);
+    }
+    debugPrint('Add: Index $appChangeStackIndex Stack ${appChangeStack[appChangeStackIndex]}');
+  }
+
+  void undo() {
+    if (canUndo) {
+      appChangeStackIndex--;
+      undoFunction(appChangeStack[appChangeStackIndex]);
+      canUndo = appChangeStackIndex > 0;
+      canRedo = true;
+      debugPrint('Undo: Index $appChangeStackIndex Stack ${appChangeStack[appChangeStackIndex]}');
+    }
+  }
+
+  void redo() {
+    if (canRedo) {
+      appChangeStackIndex++;
+      redoFunction(appChangeStack[appChangeStackIndex]);
+      canRedo = appChangeStackIndex < appChangeStack.length - 1;
+      canUndo = true;
+      debugPrint('Redo: Index $appChangeStackIndex Stack ${appChangeStack[appChangeStackIndex]}');
+    }
+  }
+}
+
+
+
 /// A small button that only consists of an icon and runs some functions.
 /// 
 /// [iconData] is the icon type, eg: Icons.arrow_upward
@@ -1635,9 +1711,20 @@ class CodeInputWidget<T extends GenericProviderState> extends StatelessWidget {
     double _height = listItemDetails['cell_height'] != null ? listItemDetails['cell_height'] - 2 : 25;
     int _expectedLength = (_width * _height / 200).round();
 
+    //If imported event doesn't have data, input_data would have been set as a string.
+    //Turn it into a map!
+    dynamic inputDataTest = getNestedProperty(obj: widget.value['input_data'], path: path);
+    if(inputDataTest is String){
+      inputDataTest = convertStringToMap(inputDataTest);
+      if (inputDataTest is Map<dynamic, dynamic>){
+        setNestedProperty(obj: widget.value['input_data'], path: path, value: inputDataTest);
+      } else {
+        setNestedProperty(obj: widget.value['input_data'], path: path, value: null);
+      }
+    }
+
     //If null variables but NOT null input data, set variable to internal name, or default if blank
     Map<dynamic, dynamic>? inputData = getNestedProperty(obj: widget.value['input_data'], path: path);
-
     if(
       inputData != null 
       && getNestedProperty(obj: widget.value['variables'], path: path) == null
@@ -1805,7 +1892,7 @@ class _ElmCodeEditorState extends State<ElmCodeEditor> {
                         ElmModuleList.updateAllModuleUI(appState: widget.appState);
                       });
                     },
-                    child: Row(children: [Icon(Icons.add, color: widget.appState.themeColour), AutoSizeText('util_module_code_message_setdefault'.tr)])
+                    child: Row(children: [Icon(Icons.restart_alt, color: widget.appState.themeColour), AutoSizeText('util_module_code_message_setdefault'.tr)])
                   ),
                 ),
               ),

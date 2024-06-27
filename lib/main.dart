@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:get/get.dart';
 import 'package:double_back_to_close_app/double_back_to_close_app.dart';
-import '/util_classes.dart';
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
@@ -19,6 +18,7 @@ import 'pages/6_codename_page.dart';
 import 'pages/7_misc_page.dart';
 import '/strings.dart';
 import '/util_functions.dart';
+import '/util_classes.dart';
 
 void main() {
   runApp(const MyApp());
@@ -65,7 +65,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// Create an event bus instance
+//Create an event bus instance
 EventBus eventBus = EventBus();
 
 //Import modules
@@ -75,7 +75,8 @@ class CheckImportModuleCodeEvent {}
 class RebuildPageEvent {
   final String pageToRebuild;
   bool allExcept = false;
-  RebuildPageEvent(this.pageToRebuild){
+  final List<dynamic>? replaceModuleArr;
+  RebuildPageEvent({required this.pageToRebuild, this.replaceModuleArr}){
     allExcept = pageToRebuild.startsWith('!');
   }
 }
@@ -118,6 +119,8 @@ class ProviderMainState extends ChangeNotifier {
     //Don't need updateLevelCode(); as it'll already update after importing
   }
 
+  //Note: Importing the level code also updates the level code automatically.
+  //The importing process has to update the level code in order to check if import was successful
   static void importLevelCode({importedCode = null}){
 
     debugPrint('Imported code: $importedCode');
@@ -176,8 +179,7 @@ class ProviderMainState extends ChangeNotifier {
         ProviderMainState.global['nonElmImportWarn'] = [];
       }
 
-      eventBus.fire(RebuildPageEvent('!misc'));
-      print('rebuild?');
+      eventBus.fire(RebuildPageEvent(pageToRebuild: '!misc'));
     }
     doAsyncStuff();
   }
@@ -192,21 +194,21 @@ class ProviderMainState extends ChangeNotifier {
     dynamic levelDefinition = {
       "objclass": "LevelDefinition",
       "objdata": {
-          "StartingSun": 50,
-          "Description": "Custom Level",
-          "FirstRewardParam": "moneybag",
-          "NormalPresentTable": "egypt_normal_01",
-          "ShinyPresentTable": "egypt_shiny_01",
-          "Loot": "RTID(DefaultLoot@LevelModules)",
-          "ResourceGroupNames": [
-              "DelayLoad_Background_Beach",
-              "DelayLoad_Background_Beach_Compressed",
-              "Tombstone_Dark_Special",
-              "Tombstone_Dark_Effects"
-          ],
-          "Modules": [],
-          "Name": "My Level",
-          "StageModule": "RTID(ModernStage@LevelModules)"
+        "StartingSun": 50,
+        "Description": "Custom Level",
+        "FirstRewardParam": "moneybag",
+        "NormalPresentTable": "egypt_normal_01",
+        "ShinyPresentTable": "egypt_shiny_01",
+        "Loot": "RTID(DefaultLoot@LevelModules)",
+        "ResourceGroupNames": [
+            "DelayLoad_Background_Beach",
+            "DelayLoad_Background_Beach_Compressed",
+            "Tombstone_Dark_Special",
+            "Tombstone_Dark_Effects"
+        ],
+        "Modules": [],
+        "Name": "My Level",
+        "StageModule": "RTID(ModernStage@LevelModules)"
       }
     };
 
@@ -225,7 +227,7 @@ class ProviderMainState extends ChangeNotifier {
     };
 
     ProviderMiscState.getCodeShown;
-    eventBus.fire(RebuildPageEvent('misc'));
+    eventBus.fire(RebuildPageEvent(pageToRebuild: 'misc'));
   }
 
   static const List jsonFileNames = ['modules_events', "modules_custom"];   //All file names for the jsons that specify module information w/o the .json
@@ -336,7 +338,7 @@ class _MyHomePageState extends State<MyHomePage> {
   ];
 
   final List<String> _pageName = [
-    'page_waves'.tr, 
+    'page_wave'.tr, 
     'page_inital'.tr, 
     'page_setting'.tr, 
     'page_custom'.tr, 
