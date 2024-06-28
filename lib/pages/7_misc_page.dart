@@ -54,7 +54,7 @@ class _Page_MiscState extends State<Page_Misc> {
     if (ProviderMiscState.updateCode) {
       ProviderMiscState.updateCode = false;
       eventBus.on<RebuildPageEvent>().listen((event) {
-        if (event.allExcept && event.pageToRebuild != '!misc' || event.pageToRebuild == 'misc'){
+        if (event.allExcept && event.page != '!misc' || event.page == 'misc'){
           appMiscState.updateMiscState();
         }
       });

@@ -65,20 +65,84 @@ class MyApp extends StatelessWidget {
   }
 }
 
+//Create UndoStack
+bool allowUpdateUndoStack = true;
+UndoStack appUndoStack = UndoStack(
+  maxStackSize: 300,
+  addItemFunction: (item){
+    //Do nothing
+  },
+  undoFunction: (item){
+    undoRedoFunction(item);
+  },
+  redoFunction: (item){
+    undoRedoFunction(item);
+  }
+);
+
+void undoRedoFunction(item) {
+
+  eventBus.fire(SetScrollEvent(page: item[0][0], scrollOffset: item[0][1]));
+  //print('retrieved scrolldata: ${item[0]}');
+
+  final getController = Get.put(GetController());
+
+  switch (item[0][0]) {
+    case 'wave':
+      getController.currentIndex.value = 0;
+      break;
+    case 'initial':
+      getController.currentIndex.value = 1;
+      break;
+    case 'setting':
+      getController.currentIndex.value = 2;
+      break;
+    case 'custom':
+      getController.currentIndex.value = 3;
+      break;
+    default:
+  }
+
+  ProviderMainState.waveCode = item[1];
+  ProviderMainState.waveCode['importCheck'] = true;
+  ProviderMainState.initialCode = item[2];
+  ProviderMainState.initialCode['importCheck'] = true;
+  ProviderMainState.settingCode = item[3];
+  ProviderMainState.settingCode['importCheck'] = true;
+  ProviderMainState.customCode = item[4];
+  ProviderMainState.customCode['importCheck'] = true;
+  eventBus.fire(CheckImportModuleCodeEvent(preventUpdateModule: true));
+
+}
+void appUndoStackDelayedEnable() async {
+  await Future.delayed(const Duration(milliseconds: 300));
+  allowUpdateUndoStack = true;
+}
+
 //Create an event bus instance
 EventBus eventBus = EventBus();
 
 //Import modules
-class CheckImportModuleCodeEvent {}
+class CheckImportModuleCodeEvent {
+  bool preventUpdateModule;
+  CheckImportModuleCodeEvent({this.preventUpdateModule = false}){}
+}
 
 //Update one specific page. Add ! for reloading all EXCEPT that page. Add something else (eg: All) for all pages.
 class RebuildPageEvent {
-  final String pageToRebuild;
+  final String page;
   bool allExcept = false;
   final List<dynamic>? replaceModuleArr;
-  RebuildPageEvent({required this.pageToRebuild, this.replaceModuleArr}){
-    allExcept = pageToRebuild.startsWith('!');
+  RebuildPageEvent({required this.page, this.replaceModuleArr}){
+    allExcept = page.startsWith('!');
   }
+}
+
+//Update one specific page's scroll.
+class SetScrollEvent {
+  final String page;
+  final double scrollOffset;
+  SetScrollEvent({required this.page, required this.scrollOffset}){}
 }
 
 //APPSTATE -------------------------------------------------
@@ -133,18 +197,12 @@ class ProviderMainState extends ChangeNotifier {
     settingCode = {'objects': [], 'levelModules': [], 'waveModules': [], 'importCheck': true};
     customCode = {'objects': [], 'levelModules': [], 'waveModules': [], 'importCheck': true};
 
-    //levelCode['objects'] = importedCode['objects'];
-
-    //Need to extract levelmodules and wavemodules
-    //And also just extract everything in general
-    //waveModuleArr = [],
-
-    //Loop through every object
+    //Split the full object code into the individual pages, splitted into objects/levelModules/waveModules
     bool doneLevelDefinition = false;
 
     importedCode['objects'].forEach((item){
 
-      print('item: $item');
+      //print('item: $item');
 
       if (item != null) { //Skip through nulls. Probably just empty {}
         String? objclass = item['objclass']; //String? as possible that item has no objclass (goes straight to custom!)
@@ -179,7 +237,7 @@ class ProviderMainState extends ChangeNotifier {
         ProviderMainState.global['nonElmImportWarn'] = [];
       }
 
-      eventBus.fire(RebuildPageEvent(pageToRebuild: '!misc'));
+      eventBus.fire(RebuildPageEvent(page: '!misc'));
     }
     doAsyncStuff();
   }
@@ -189,8 +247,11 @@ class ProviderMainState extends ChangeNotifier {
   /// Note: Level code is stored in main.dart parameters.
   /// When the respective pages is changed, the main code is set to the page code.
   /// 
-  static void updateLevelCode(){
+  static void updateLevelCode({List<dynamic> scrollData = const ['page', 0.0]}){
 
+    dynamic oldFullLevelCode = deepCopy(levelCode['full']);
+
+    //TO-DO: levelDefinition dependent on levelModules, wave modules dependent on waveCode
     dynamic levelDefinition = {
       "objclass": "LevelDefinition",
       "objdata": {
@@ -227,7 +288,18 @@ class ProviderMainState extends ChangeNotifier {
     };
 
     ProviderMiscState.getCodeShown;
-    eventBus.fire(RebuildPageEvent(pageToRebuild: 'misc'));
+    eventBus.fire(RebuildPageEvent(page: 'misc'));
+
+    //Store level code to UndoStack. Only occurs if new code is different + it has been some time since the previous one (to prevent dupe)
+    if (allowUpdateUndoStack && !deepEquals(oldFullLevelCode, levelCode['full'])) {
+      void doAsyncStuff() async {
+        allowUpdateUndoStack = false;
+        appUndoStack.add([scrollData, waveCode, initialCode, settingCode, customCode]);
+        await Future.delayed(const Duration(milliseconds: 100)); //Wait some time for firings to complete
+        allowUpdateUndoStack = true;
+      }
+      doAsyncStuff();
+    }
   }
 
   static const List jsonFileNames = ['modules_events', "modules_custom"];   //All file names for the jsons that specify module information w/o the .json
@@ -269,10 +341,13 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
+class GetController extends GetxController {
+  var currentIndex = 0.obs;
+}
+
 class _MyHomePageState extends State<MyHomePage> {
 
-  //This is for nav bar
-  int _currentIndex = 0;
+  final getController = Get.put(GetController());
 
   @override
   void initState() {
@@ -314,11 +389,8 @@ class _MyHomePageState extends State<MyHomePage> {
         ProviderMainState.global['isOpenWithImport'] = true;
         ProviderMiscState.importCodeWithOpen(fileContent: fileContent);
 
-
-        setState(() {
         //Set page to misc page
-          _currentIndex = 6;
-        });
+        getController.currentIndex.value = 6;
       }
     } on PlatformException catch (e) {
       debugPrint("Failed to get file path: '${e.message}'.");
@@ -354,15 +426,17 @@ class _MyHomePageState extends State<MyHomePage> {
         snackBar: const SnackBar(
           content: Text('Tap back again to quit the app!'),
         ), 
-        child: IndexedStack(children: _pages, index: _currentIndex)),
-      bottomNavigationBar: BottomNavigationBar(
+        child: Obx(() => IndexedStack(
+          children: _pages,
+          index: getController.currentIndex.value,
+        )),
+      ),
+      bottomNavigationBar: Obx(() => BottomNavigationBar(
         type: BottomNavigationBarType.shifting,
-        currentIndex: _currentIndex,
+        currentIndex: getController.currentIndex.value,
         onTap: (int index) {
           primaryFocus!.unfocus();
-          setState(() {
-            _currentIndex = index;
-          });
+          getController.currentIndex.value = index;
         },
         selectedFontSize: 13,
         showUnselectedLabels: false,
@@ -410,7 +484,7 @@ class _MyHomePageState extends State<MyHomePage> {
             backgroundColor: Color.fromARGB(255, 23, 31, 46),
           ),
         ],
-      ),
+      )),
     );
   }
 }

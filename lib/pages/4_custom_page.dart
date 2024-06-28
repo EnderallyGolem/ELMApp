@@ -21,12 +21,17 @@ class ProviderCustomState extends ChangeNotifier implements GenericProviderState
   @override GlobalKey<AnimatedListState> animatedModuleListKey = GlobalKey<AnimatedListState>();
   @override bool runForFirstTime = true;
   @override bool isImportingModules = false;
-  @override bool allowUpdateModuleState = true;
+  @override bool allowUpdateModule = true;
+  @override ScrollController scrollController = ScrollController();
+  @override double scrollOffset = 0.0;
 
   // Updates main level code
   @override void updateModuleState(){
-    updateModuleCodeInMain(elmModuleListArr: elmModuleListArr); //Updates module code in main.dart
-    ProviderMainState.updateLevelCode(); //Updates the full code in main.dart
+    if (allowUpdateModule) {
+      updateModuleCodeInMain(elmModuleListArr: elmModuleListArr);               //Updates module code in main.dart
+      scrollOffset = scrollController.offset;                                   //Update scroll offset
+      ProviderMainState.updateLevelCode(scrollData: ['custom', scrollOffset]);  //Updates the full code in main.dart
+    }
   }
 
   // Updates UI
@@ -34,9 +39,9 @@ class ProviderCustomState extends ChangeNotifier implements GenericProviderState
     notifyListeners();  //Updates the displayed module UI state
   }
 
-  // Generate the updated waveCode, then updates the waveCode in main.dart with it
+  // Generate the updated module code, then updates the module code in main.dart with it
   @override void updateModuleCodeInMain({required elmModuleListArr}){
-    dynamic moduleCode = {"objects": [], "levelModules": [], "waveModules": [],};
+    dynamic moduleCode = {"objects": [], "levelModules": [], "waveModules": [], "importCheck": false};
   
     for (int moduleIndex = 0; moduleIndex < elmModuleListArr.length; moduleIndex++){
 
@@ -57,7 +62,6 @@ class ProviderCustomState extends ChangeNotifier implements GenericProviderState
 
   // Imports code from main.
   @override void checkImportModuleCode(){
-
     dynamic codeToAdd = ProviderMainState.customCode; //Change this
     isImportingModules = true;
 
@@ -168,7 +172,6 @@ class ProviderCustomState extends ChangeNotifier implements GenericProviderState
         }
 
         try {
-          print('Insert to custom: $moduleIndex $value');
           elmModuleListArr.insert(moduleIndex, ElmModuleList(moduleIndex: moduleIndex, value: deepCopy(value)));
         } catch (e) {
           debugPrint('Custom: Error occured when trying to import module: $aliases. Error: $e');
@@ -200,11 +203,26 @@ class _Page_CustomState extends State<Page_Custom> {
     if (appState.runForFirstTime) {
       appState.runForFirstTime = false;
       eventBus.on<CheckImportModuleCodeEvent>().listen((event) {
+        appState.allowUpdateModule = false;
         appState.checkImportModuleCode();
         appState.updateModuleUI();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+        void doAsyncStuff() async {
+          await Future.delayed(Duration(milliseconds: 50)); //Wait some time for firings to complete
+          appState.allowUpdateModule = true;
+        }
+          doAsyncStuff();
+        });
+      });
+      eventBus.on<SetScrollEvent>().listen((event) {
+        if (event.page == 'custom'){
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            appState.scrollController.jumpTo(event.scrollOffset); // Restore scroll position
+          });
+        }
       });
       eventBus.on<RebuildPageEvent>().listen((event) {
-        if (event.allExcept && event.pageToRebuild != '!custom' || event.pageToRebuild == 'custom'){
+        if (event.allExcept && event.page != '!custom' || event.page == 'custom'){
           appState.updateModuleUI();
         }
       });

@@ -11,7 +11,7 @@ class ProviderWaveState extends ChangeNotifier implements GenericProviderState {
 
   //Change these first 4!
   @override Color themeColour = Color.fromARGB(255, 58, 104, 183); //Colour used by UI
-  @override bool isVertical = true; //If modules extend vertically down or horizontally right
+  @override bool isVertical = false; //If modules extend vertically down or horizontally right
   @override Map<String, bool> enabledButtons = //Change enabled buttons. extra contains all disabled buttons.
     {'minimise': false, 'shiftup': false, 'shiftdown': false, 'copy': false, 'delete': true, 'add': true, 'extra': true}; //TO-DO: Button for copying event into another wave (not new event)
   @override String moduleJsonFileName = 'modules_events';
@@ -21,12 +21,17 @@ class ProviderWaveState extends ChangeNotifier implements GenericProviderState {
   @override GlobalKey<AnimatedListState> animatedModuleListKey = GlobalKey<AnimatedListState>();
   @override bool runForFirstTime = true;
   @override bool isImportingModules = false;
-  @override bool allowUpdateModuleState = true;
+  @override bool allowUpdateModule = true;
+  @override ScrollController scrollController = ScrollController();
+  @override double scrollOffset = 0.0;
 
   // Updates main level code
   @override void updateModuleState(){
-    updateModuleCodeInMain(elmModuleListArr: elmModuleListArr); //Updates module code in main.dart
-    ProviderMainState.updateLevelCode(); //Updates the full code in main.dart
+    if (allowUpdateModule) {
+      updateModuleCodeInMain(elmModuleListArr: elmModuleListArr);               //Updates module code in main.dart
+      scrollOffset = scrollController.offset;                                   //Update scroll offset
+      ProviderMainState.updateLevelCode(scrollData: ['wave', scrollOffset]);    //Updates the full code in main.dart
+    }
   }
 
 
@@ -35,9 +40,9 @@ class ProviderWaveState extends ChangeNotifier implements GenericProviderState {
     notifyListeners();  //Updates the displayed module UI state
   }
 
-  // Generate the updated waveCode, then updates the waveCode in main.dart with it
+  // Generate the updated module code, then updates the module code in main.dart with it
   @override void updateModuleCodeInMain({required elmModuleListArr}){
-    dynamic moduleCode = {"objects": [], "levelModules": [], "waveModules": [],};
+    dynamic moduleCode = {"objects": [], "levelModules": [], "waveModules": [], "importCheck": false};
   
     for (int moduleIndex = 0; moduleIndex < elmModuleListArr.length; moduleIndex++){
 
@@ -58,7 +63,6 @@ class ProviderWaveState extends ChangeNotifier implements GenericProviderState {
 
   // Imports code from main.
   @override void checkImportModuleCode(){
-
     dynamic codeToAdd = ProviderMainState.waveCode; //Change this
     isImportingModules = true;
 
@@ -171,7 +175,6 @@ class ProviderWaveState extends ChangeNotifier implements GenericProviderState {
         }
 
         try {
-          print('Insert to wave: $moduleIndex $value');
           elmModuleListArr.insert(moduleIndex, ElmModuleList(moduleIndex: moduleIndex, value: deepCopy(value)));
         } catch (e) {
           debugPrint('Wave: Error occured when trying to import module: $aliases. Error: $e');
@@ -203,11 +206,25 @@ class _Page_WaveState extends State<Page_Wave> {
     if (appState.runForFirstTime) {
       appState.runForFirstTime = false;
       eventBus.on<CheckImportModuleCodeEvent>().listen((event) {
+        appState.allowUpdateModule = false;
         appState.checkImportModuleCode();
         appState.updateModuleUI();
+        void doAsyncStuff() async {
+          await Future.delayed(Duration(milliseconds: 50)); //Wait some time for firings to complete
+          appState.allowUpdateModule = true;
+        }
+          doAsyncStuff();
+      });
+      eventBus.on<SetScrollEvent>().listen((event) {
+        if (event.page == 'wave'){
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            print('i am jumping to wave page position ${event.scrollOffset}');
+            appState.scrollController.jumpTo(event.scrollOffset); // Restore scroll position
+          });
+        }
       });
       eventBus.on<RebuildPageEvent>().listen((event) {
-        if (event.allExcept && event.pageToRebuild != '!wave' || event.pageToRebuild == 'wave'){
+        if (event.allExcept && event.page != '!wave' || event.page == 'wave'){
           appState.updateModuleUI();
         }
       });

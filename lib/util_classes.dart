@@ -66,7 +66,7 @@ class UndoStack {
       appChangeStackIndex--;
       appChangeStack.removeAt(0);
     }
-    debugPrint('Add: Index $appChangeStackIndex Stack ${appChangeStack[appChangeStackIndex]}');
+    //debugPrint('Add: Index $appChangeStackIndex Stack ${appChangeStack[appChangeStackIndex]}');
   }
 
   void undo() {
@@ -75,7 +75,7 @@ class UndoStack {
       undoFunction(appChangeStack[appChangeStackIndex]);
       canUndo = appChangeStackIndex > 0;
       canRedo = true;
-      debugPrint('Undo: Index $appChangeStackIndex Stack ${appChangeStack[appChangeStackIndex]}');
+      //debugPrint('Undo: Index $appChangeStackIndex Stack ${appChangeStack[appChangeStackIndex]}');
     }
   }
 
@@ -85,7 +85,7 @@ class UndoStack {
       redoFunction(appChangeStack[appChangeStackIndex]);
       canRedo = appChangeStackIndex < appChangeStack.length - 1;
       canUndo = true;
-      debugPrint('Redo: Index $appChangeStackIndex Stack ${appChangeStack[appChangeStackIndex]}');
+      //debugPrint('Redo: Index $appChangeStackIndex Stack ${appChangeStack[appChangeStackIndex]}');
     }
   }
 }
@@ -173,6 +173,9 @@ abstract class GenericProviderState {
   late Map<String, bool> enabledButtons;
   late String moduleJsonFileName;
   VoidCallback? onNavigateToTargetPage;
+  bool allowUpdateModule = true;
+  late ScrollController scrollController;
+  late double scrollOffset;
 
   void dispose();
   void updateModuleState();
@@ -276,7 +279,7 @@ class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
     );
     appState.animatedModuleListKey.currentState!.insertAllItems(
       0, appState.elmModuleListArr.length,
-      duration: const Duration(milliseconds: 150)
+      duration: const Duration(milliseconds: 0)
     );
   }
 
@@ -473,110 +476,113 @@ class ElmSingleModuleMainWidget<T extends GenericProviderState> extends Stateles
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            //Dropdown Button
-            SizedBox(
-              width: 170,
-              height: 30,
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton2<String>(
-                  isExpanded: true,
-                  hint: Row(
-                    children: [
-                      widget.value['module_dropdown_list']['dropdown_image'] ?? Image.asset('assets/icon/moduleassets/misc_empty.png', height: 20, width: 20),
-                      SizedBox(width: 4),
-                      Expanded(
-                        child: AutoSizeText(
-                          widget.value['module_dropdown_list']['dropdown_module_display_text'],
-                          maxFontSize: 14,
-                          minFontSize: 5,
-                          style: TextStyle(
-                            color: appGenericState.themeColour,
-                          ),
-                          overflow: TextOverflow.fade,
-                        ),
-                      ),
-                    ],
-                  ),
-                  items: ProviderMainState.global["moduleJsons"]["${appGenericState.moduleJsonFileName}_enabled"].entries.map<DropdownMenuItem<String>>((entry) {
-                  return DropdownMenuItem<String>(
-                    value: entry.key,
-                    child: FittedBox(
-                      child: Row(
-                        children: [
-                          entry.value['Image'] ?? Image.asset('assets/icon/moduleassets/misc_empty.png', height: 20, width: 20,),
-                          SizedBox(width: 5),
-                          Text(
-                            entry.value['display_text'] as String,
+        Container(
+          margin: const EdgeInsets.fromLTRB(4, 2, 2, 0),
+          child: Row(
+            children: [
+              //Dropdown Button
+              SizedBox(
+                width: 158,
+                height: 30,
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton2<String>(
+                    isExpanded: true,
+                    hint: Row(
+                      children: [
+                        widget.value['module_dropdown_list']['dropdown_image'] ?? Image.asset('assets/icon/moduleassets/misc_empty.png', height: 20, width: 20),
+                        SizedBox(width: 4),
+                        Expanded(
+                          child: AutoSizeText(
+                            widget.value['module_dropdown_list']['dropdown_module_display_text'],
+                            maxFontSize: 14,
+                            minFontSize: 5,
                             style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.black,
+                              color: appGenericState.themeColour,
                             ),
                             overflow: TextOverflow.fade,
                           ),
-                        ],
+                        ),
+                      ],
+                    ),
+                    items: ProviderMainState.global["moduleJsons"]["${appGenericState.moduleJsonFileName}_enabled"].entries.map<DropdownMenuItem<String>>((entry) {
+                    return DropdownMenuItem<String>(
+                      value: entry.key,
+                      child: FittedBox(
+                        child: Row(
+                          children: [
+                            entry.value['Image'] ?? Image.asset('assets/icon/moduleassets/misc_empty.png', height: 20, width: 20,),
+                            SizedBox(width: 5),
+                            Text(
+                              entry.value['display_text'] as String,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.black,
+                              ),
+                              overflow: TextOverflow.fade,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                    }).toList(),
+                    //value: widget.value['module_dropdown_list']['dropdown_module_display_text'],
+                    onChanged: (value) {
+                      widget.value['module_dropdown_list']['dropdown_module_internal_name'] = value;
+                      if(ProviderMainState.global["moduleJsons"][appGenericState.moduleJsonFileName][value] == null){
+                        widget.value['module_dropdown_list']['dropdown_module_display_text'] = value;
+                      } else {
+                        widget.value['module_dropdown_list']['dropdown_module_display_text'] = ProviderMainState.global["moduleJsons"][appGenericState.moduleJsonFileName][value]!["display_text"];
+                        widget.value['module_dropdown_list']['dropdown_image'] = ProviderMainState.global["moduleJsons"][appGenericState.moduleJsonFileName][value]!["Image"];
+                      }
+                      ElmModuleList.updateAllModuleUI(appState: appGenericState);
+                      widget.uniqueValue['internal_data']['firstUpdate'] = true;
+                    },
+                    buttonStyleData: ButtonStyleData(
+                      height: 50,
+                      width: 160,
+                      padding: const EdgeInsets.only(left: 14, right: 14),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Colors.black26,
+                        ),
+                        color: const Color.fromARGB(255, 216, 216, 216),
+                      ),
+                      elevation: 2,
+                    ),
+                    iconStyleData: IconStyleData(
+                      icon: Icon(
+                        Icons.arrow_forward_ios_outlined,
+                      ),
+                      iconSize: 14,
+                      iconEnabledColor: appGenericState.themeColour,
+                      iconDisabledColor: appGenericState.themeColour,
+                    ),
+                    dropdownStyleData: DropdownStyleData(
+                      maxHeight: 200,
+                      width: 200,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        color: const Color.fromARGB(255, 216, 216, 216),
+                      ),
+                      offset: const Offset(-20, 0),
+                      scrollbarTheme: ScrollbarThemeData(
+                        radius: const Radius.circular(40),
+                        thickness: WidgetStateProperty.all(6),
+                        thumbVisibility: WidgetStateProperty.all(true),
                       ),
                     ),
-                  );
-                  }).toList(),
-                  //value: widget.value['module_dropdown_list']['dropdown_module_display_text'],
-                  onChanged: (value) {
-                    widget.value['module_dropdown_list']['dropdown_module_internal_name'] = value;
-                    if(ProviderMainState.global["moduleJsons"][appGenericState.moduleJsonFileName][value] == null){
-                      widget.value['module_dropdown_list']['dropdown_module_display_text'] = value;
-                    } else {
-                      widget.value['module_dropdown_list']['dropdown_module_display_text'] = ProviderMainState.global["moduleJsons"][appGenericState.moduleJsonFileName][value]!["display_text"];
-                      widget.value['module_dropdown_list']['dropdown_image'] = ProviderMainState.global["moduleJsons"][appGenericState.moduleJsonFileName][value]!["Image"];
-                    }
-                    ElmModuleList.updateAllModuleUI(appState: appGenericState);
-                    widget.uniqueValue['internal_data']['firstUpdate'] = true;
-                  },
-                  buttonStyleData: ButtonStyleData(
-                    height: 50,
-                    width: 160,
-                    padding: const EdgeInsets.only(left: 14, right: 14),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: Colors.black26,
-                      ),
-                      color: const Color.fromARGB(255, 216, 216, 216),
+                    menuItemStyleData: const MenuItemStyleData(
+                      height: 40,
+                      padding: EdgeInsets.only(left: 14, right: 14),
                     ),
-                    elevation: 2,
-                  ),
-                  iconStyleData: IconStyleData(
-                    icon: Icon(
-                      Icons.arrow_forward_ios_outlined,
-                    ),
-                    iconSize: 14,
-                    iconEnabledColor: appGenericState.themeColour,
-                    iconDisabledColor: appGenericState.themeColour,
-                  ),
-                  dropdownStyleData: DropdownStyleData(
-                    maxHeight: 200,
-                    width: 200,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      color: const Color.fromARGB(255, 216, 216, 216),
-                    ),
-                    offset: const Offset(-20, 0),
-                    scrollbarTheme: ScrollbarThemeData(
-                      radius: const Radius.circular(40),
-                      thickness: WidgetStateProperty.all(6),
-                      thumbVisibility: WidgetStateProperty.all(true),
-                    ),
-                  ),
-                  menuItemStyleData: const MenuItemStyleData(
-                    height: 40,
-                    padding: EdgeInsets.only(left: 14, right: 14),
                   ),
                 ),
               ),
-            ),
-            //Module Button List
-            ElmModuleButtonList(appGenericState: appGenericState, widget: widget, isVertical: isVertical),
-          ],
+              //Module Button List
+              ElmModuleButtonList(appGenericState: appGenericState, widget: widget, isVertical: isVertical),
+            ],
+          ),
         ),
         //Level Modules
         //If isVertical, add horizontal scorlling view
@@ -624,7 +630,7 @@ class ElmSingleModuleInputWidget<T extends GenericProviderState> extends Statele
           ),
         ),
         padding: const EdgeInsets.all(5),
-        margin: const EdgeInsets.all(5),
+        margin: const EdgeInsets.fromLTRB(2, 3, 2, 5),
         height: 200,
         child: ElmDynamicModuleForm(appState: appGenericState, widget: widget, config: ProviderMainState.global["moduleJsons"][appGenericState.moduleJsonFileName][widget.value['module_dropdown_list']['dropdown_module_internal_name']])
       ),
@@ -2231,14 +2237,29 @@ class ElmModuleListWidget<T extends GenericProviderState> extends StatelessWidge
             },
             child: Row(children: [Icon(Icons.add, color: appState.themeColour,), Text(addModuleText, selectionColor: appState.themeColour,)])
           ),
+          ElmIconButton(iconData: Icons.undo, iconColor: appState.themeColour, onPressFunctions: (){
+            if (allowUpdateUndoStack){
+              allowUpdateUndoStack = false;
+              appUndoStack.undo();
+              appUndoStackDelayedEnable();
+            }
+          }),
+          ElmIconButton(iconData: Icons.redo, iconColor: appState.themeColour, onPressFunctions: (){
+            if (allowUpdateUndoStack){
+              allowUpdateUndoStack = false;
+              appUndoStack.redo();
+              appUndoStackDelayedEnable();
+            }
+          }),
         ],
       ),
       body: AnimatedList(
-        padding: EdgeInsets.fromLTRB(0, 0, 0, 200),
+        padding: appState.isVertical ? EdgeInsets.fromLTRB(0, 0, 0, 200) : EdgeInsets.fromLTRB(0, 0, 50, 0), //Extra padding is to allow scrolling past the end
         clipBehavior: Clip.none,
         scrollDirection: appState.isVertical ? Axis.vertical : Axis.horizontal,
         key: appState.animatedModuleListKey,
         initialItemCount: appState.elmModuleListArr.length,
+        controller: appState.scrollController,
         itemBuilder: (context, index, animation) {
           return FadeTransition(
             opacity: animation,
