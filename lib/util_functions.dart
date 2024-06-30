@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:msgpack_dart/msgpack_dart.dart' as msgpack;
 import 'package:base_x/base_x.dart';
 
+import 'util_classes.dart';
+
 ///
 /// Returns json file (as an obj). This is an async function! Requires async + await.
 /// 
@@ -546,6 +548,14 @@ dynamic deepCopy(dynamic source) {
   } else {
     return source;
   }
+}
+
+List<ElmModuleList> deepCopyElmModuleList(List<ElmModuleList> source) {
+  List<ElmModuleList> returnList = [];
+  source.forEach((element) {
+    returnList.add(element.deepCopyModule()); 
+  });
+  return returnList;
 }
 
 

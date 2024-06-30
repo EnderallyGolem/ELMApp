@@ -1,3 +1,4 @@
+import 'package:elmapp/pages/1_wave_page.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -239,6 +240,15 @@ class ElmModuleList<T extends GenericProviderState> extends StatefulWidget {
       value['variables']['aliases'] = value['variables']['default_aliases'];
     }
     //debugPrint('${key} ${moduleIndex} || Value ${value}');
+  }
+
+  ElmModuleList<T> deepCopyModule() {
+    return ElmModuleList<T>(
+      moduleIndex: this.moduleIndex,
+      value: deepCopy(this.value),
+      uniqueValue: null, // or provide a default value
+      key: null,
+    );
   }
 
   static Widget _buildAnimatedElmModuleList<T extends GenericProviderState>({required int moduleIndex, required Animation<double> animation, required T appState}) {
@@ -2060,7 +2070,7 @@ class ElmModuleButtonList<T extends GenericProviderState> extends StatelessWidge
         ElmIconButton(iconData: Icons.delete, iconColor: appGenericState.themeColour, enabled: appGenericState.enabledButtons['delete'],
         onPressFunctions: (){
           //TO-DO: Option to disable warning
-          Get.defaultDialog(title: 'util_deletewave_warning_title'.tr, middleText:  'util_deletewave_warning_desc'.tr, textCancel: 'Cancel'.tr, textConfirm: 'generic_confirm'.tr, onConfirm: (){
+          Get.defaultDialog(title: 'util_deletemodule_warning_title'.tr, middleText:  'util_deletemodule_warning_desc'.tr, textCancel: 'Cancel'.tr, textConfirm: 'generic_confirm'.tr, onConfirm: (){
             ElmModuleList.deleteModule(
               moduleIndex: widget.moduleIndex,
               appState: appGenericState,
@@ -2156,7 +2166,7 @@ class ElmModuleButtonList<T extends GenericProviderState> extends StatelessWidge
                 ElmIconButton(iconData: Icons.delete, iconColor: appGenericState.themeColour, buttonWidth: 50, buttonHeight: 30, enabled: false == appGenericState.enabledButtons['delete'],
                 onPressFunctions: (){
                   //TO-DO: Option to disable warning
-                  Get.defaultDialog(title: 'util_deletewave_warning_title'.tr, middleText:  'util_deletewave_warning_desc'.tr, textCancel: 'Cancel'.tr, textConfirm: 'generic_confirm'.tr, onConfirm: (){
+                  Get.defaultDialog(title: 'util_deletemodule_warning_title'.tr, middleText:  'util_deletemodule_warning_desc'.tr, textCancel: 'Cancel'.tr, textConfirm: 'generic_confirm'.tr, onConfirm: (){
                     ElmModuleList.deleteModule(
                       moduleIndex: widget.moduleIndex,
                       appState: appGenericState,
@@ -2196,19 +2206,25 @@ class ElmModuleButtonList<T extends GenericProviderState> extends StatelessWidge
 /// The Module List
 ///
 class ElmModuleListWidget<T extends GenericProviderState> extends StatelessWidget {
+
+  final T appState;
+  final dynamic superAppStateData;
+  final String title;
+  final String addModuleText;
+  
   ElmModuleListWidget({
     super.key,
+    this.superAppStateData, //For 2-layered widget. Aka for waves. Only.
     required this.appState,
     required this.title,
     required this.addModuleText,
   });
 
-  final T appState;
-  final String title;
-  final String addModuleText;
-
   @override
   Widget build(BuildContext context) {
+
+    bool hasSuperAppState = superAppStateData != null;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       appState.updateModuleState(); //Update the module code in main! ONCE!
     });
@@ -2237,46 +2253,247 @@ class ElmModuleListWidget<T extends GenericProviderState> extends StatelessWidge
             },
             child: Row(children: [Icon(Icons.add, color: appState.themeColour,), Text(addModuleText, selectionColor: appState.themeColour,)])
           ),
-          ElmIconButton(iconData: Icons.undo, iconColor: appState.themeColour, onPressFunctions: (){
+          hasSuperAppState ? const SizedBox.shrink() : ElmIconButton(iconData: Icons.undo, iconColor: appState.themeColour, onPressFunctions: (){
             if (allowUpdateUndoStack){
               allowUpdateUndoStack = false;
               appUndoStack.undo();
               appUndoStackDelayedEnable();
             }
           }),
-          ElmIconButton(iconData: Icons.redo, iconColor: appState.themeColour, onPressFunctions: (){
+          hasSuperAppState ? const SizedBox.shrink() : ElmIconButton(iconData: Icons.redo, iconColor: appState.themeColour, onPressFunctions: (){
             if (allowUpdateUndoStack){
               allowUpdateUndoStack = false;
               appUndoStack.redo();
               appUndoStackDelayedEnable();
             }
           }),
+          hasSuperAppState ? SuperModuleButtonList(appState: appState, superAppStateData: superAppStateData) : const SizedBox.shrink()
         ],
       ),
-      body: AnimatedList(
-        padding: appState.isVertical ? EdgeInsets.fromLTRB(0, 0, 0, 200) : EdgeInsets.fromLTRB(0, 0, 50, 0), //Extra padding is to allow scrolling past the end
-        clipBehavior: Clip.none,
-        scrollDirection: appState.isVertical ? Axis.vertical : Axis.horizontal,
-        key: appState.animatedModuleListKey,
-        initialItemCount: appState.elmModuleListArr.length,
-        controller: appState.scrollController,
-        itemBuilder: (context, index, animation) {
-          return FadeTransition(
-            opacity: animation,
-            child: SizeTransition(
-              sizeFactor: elmSizeTween(animation: animation),
-              axis: appState.isVertical ? Axis.vertical : Axis.horizontal,
-              axisAlignment: 0,
-              child: ElmModuleList<T>(
-                key: appState.elmModuleListArr[index].key,
-                moduleIndex: index,
-                uniqueValue: appState.elmModuleListArr[index].uniqueValue,
-                value: appState.elmModuleListArr[index].value,
+      body: (hasSuperAppState && superAppStateData['appState'].waveDataList[superAppStateData['waveIndex']]['minimised']) 
+      ? 
+      Row(
+        children: [
+          SizedBox(
+            width: 150,
+            height: 30,
+            child: ElevatedButton(
+              onPressed: (){
+                superAppStateData['appState'].waveDataList[superAppStateData['waveIndex']]['minimised'] = !superAppStateData['appState'].waveDataList[superAppStateData['waveIndex']]['minimised'];
+                ElmModuleList.updateAllModuleUI(appState: appState);
+              },
+              style: ElevatedButton.styleFrom(
+                fixedSize: Size.fromHeight(25),
+                minimumSize: Size.fromHeight(25),
+                elevation: 2,
+                padding: EdgeInsets.fromLTRB(5, 0, 5, 0),
+                backgroundColor: Color.fromARGB(255, 216, 216, 216),
+                side: BorderSide(
+                  color: Color.fromARGB(63, 10, 53, 117), // Dark blue outline color
+                  width: 0.6, // Outline thickness
+                ),
               ),
+              child: waveNameWidget()
             ),
-          );
-        },
-      ),
+          ),
+          //Module Button List
+          SuperModuleButtonList(appState: appState, superAppStateData: superAppStateData),
+          //Purpose of offstage instead of nothing is so functions that run when module is built actually run
+          Offstage(child: ElmModuleAnimatedList(appState: appState)),
+        ],
+      )
+      
+      : ElmModuleAnimatedList(appState: appState),
+    );
+  }
+}
+
+class waveNameWidget extends StatelessWidget {
+  const waveNameWidget({
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(width: 4),
+        Expanded(
+          child: AutoSizeText('the wave name'),
+        ),
+      ]
+    );
+  }
+}
+
+class ElmModuleAnimatedList<T extends GenericProviderState> extends StatelessWidget {
+  const ElmModuleAnimatedList({
+    super.key,
+    required this.appState,
+  });
+
+  final T appState;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedList(
+      padding: appState.isVertical ? EdgeInsets.fromLTRB(0, 0, 0, 200) : EdgeInsets.fromLTRB(0, 0, 50, 0), //Extra padding is to allow scrolling past the end
+      clipBehavior: Clip.none,
+      scrollDirection: appState.isVertical ? Axis.vertical : Axis.horizontal,
+      key: appState.animatedModuleListKey,
+      initialItemCount: appState.elmModuleListArr.length,
+      controller: appState.scrollController,
+      itemBuilder: (context, index, animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: SizeTransition(
+            sizeFactor: elmSizeTween(animation: animation),
+            axis: appState.isVertical ? Axis.vertical : Axis.horizontal,
+            axisAlignment: 0,
+            child: ElmModuleList<T>(
+              key: appState.elmModuleListArr[index].key,
+              moduleIndex: index,
+              uniqueValue: appState.elmModuleListArr[index].uniqueValue,
+              value: appState.elmModuleListArr[index].value,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+///
+/// Upper Wave Module Button List
+///
+class SuperModuleButtonList<T extends GenericProviderState> extends StatelessWidget {
+  const SuperModuleButtonList({
+    super.key,
+    required this.superAppStateData,
+    required this.appState,
+  });
+
+  final T appState;
+  final dynamic superAppStateData;
+
+  @override
+  Widget build(BuildContext context) {
+
+    ProviderWaveState superAppState = superAppStateData['appState']; //Change to dynamic if need to reuse for other provider states.
+    int waveIndex = superAppStateData['waveIndex'];
+    List<Map> waveData = superAppState.waveDataList;
+
+    return Row(
+      children: [
+        //Minimise
+        ElmIconButton(iconData: Icons.remove_red_eye_outlined, iconColor: superAppState.themeColour, buttonWidth: 35, enabled: superAppState.enabledButtons['minimise'],
+          onPressFunctions: () {
+            superAppState.waveDataList[waveIndex]['minimised'] = !superAppState.waveDataList[waveIndex]['minimised'];
+            ElmModuleList.updateAllModuleUI(appState: appState);
+          }
+        ),
+        //Shift Up
+        ElmIconButton(iconData: Icons.arrow_upward, iconColor: superAppState.themeColour, buttonWidth: 35, enabled: superAppState.enabledButtons['shiftup'],
+          onPressFunctions: () {
+            superAppState.addWaveBelow(waveIndex: waveIndex - 2);
+            superAppState.deleteWave(waveIndex: waveIndex + 1);
+            superAppState.updateAllWave();
+          }
+        ),
+        //Shift Down
+        ElmIconButton(iconData: Icons.arrow_downward, iconColor: superAppState.themeColour, buttonWidth: 35, enabled: superAppState.enabledButtons['shiftdown'],
+          onPressFunctions: () {
+            superAppState.addWaveBelow(waveIndex: waveIndex + 1);
+            superAppState.deleteWave(waveIndex: waveIndex);
+            superAppState.updateAllWave();
+          }
+        ),
+        //Copy
+        ElmIconButton(iconData: Icons.copy, iconColor: superAppState.themeColour, enabled: superAppState.enabledButtons['copy'],
+          onPressFunctions: () {
+            List waveElmModuleList = superAppState.waveList[waveIndex].elmModuleListArr;
+            superAppState.addWaveBelow(waveIndex: waveIndex, elmModuleListArr: deepCopy(waveElmModuleList), waveData: deepCopy(waveData[waveIndex]));
+            superAppState.updateAllWave();
+          }
+        ),
+        //Delete
+        ElmIconButton(iconData: Icons.delete, iconColor: superAppState.themeColour, enabled: superAppState.enabledButtons['delete'],
+        onPressFunctions: (){
+          //TO-DO: Option to disable warning
+          Get.defaultDialog(title: 'wave_deletewave_warning_title'.tr, middleText:  'wave_deletewave_warning_desc'.tr, textCancel: 'Cancel'.tr, textConfirm: 'generic_confirm'.tr, onConfirm: (){
+            superAppState.deleteWave(waveIndex: waveIndex);
+            superAppState.updateAllWave();
+            Get.back();
+          });
+        
+        }),
+        //Add
+        ElmIconButton(iconData: Icons.add, iconColor: superAppState.themeColour, enabled: superAppState.enabledButtons['add'],
+          onPressFunctions:(){
+            superAppState.addWaveBelow(waveIndex: waveIndex);
+            superAppState.updateAllWave();
+          }
+        ),
+        //Extra Menu. Contains all disabled buttons.
+        ElmIconButton(iconData: Icons.more_horiz, iconColor: superAppState.themeColour, enabled: superAppState.enabledButtons['extra'],
+          onPressFunctions:(){
+            Get.defaultDialog(title: 'util_moreactions'.tr, middleTextStyle: TextStyle(fontSize: 0), textCancel: 'Cancel'.tr, 
+              actions: [
+                //Minimise
+                ElmIconButton(iconData: Icons.remove_red_eye_outlined, iconColor: superAppState.themeColour, buttonWidth: 35, enabled: superAppState.enabledButtons['minimise'] == false,
+                  onPressFunctions: () {
+                    superAppState.waveDataList[waveIndex]['minimised'] = !superAppState.waveDataList[waveIndex]['minimised'];
+                    ElmModuleList.updateAllModuleUI(appState: appState);
+                  }
+                ),
+                //Shift Up
+                ElmIconButton(iconData: Icons.arrow_upward, iconColor: superAppState.themeColour, buttonWidth: 35, enabled: superAppState.enabledButtons['shiftup'] == false,
+                  onPressFunctions: () {
+                    superAppState.addWaveBelow(waveIndex: waveIndex - 2);
+                    superAppState.deleteWave(waveIndex: waveIndex + 1);
+                    superAppState.updateAllWave();
+                  }
+                ),
+                //Shift Down
+                ElmIconButton(iconData: Icons.arrow_downward, iconColor: superAppState.themeColour, buttonWidth: 35, enabled: superAppState.enabledButtons['shiftdown'] == false,
+                  onPressFunctions: () {
+                    superAppState.addWaveBelow(waveIndex: waveIndex + 1);
+                    superAppState.deleteWave(waveIndex: waveIndex);
+                    superAppState.updateAllWave();
+                  }
+                ),
+                //Copy
+                ElmIconButton(iconData: Icons.copy, iconColor: superAppState.themeColour, enabled: superAppState.enabledButtons['copy'] == false,
+                  onPressFunctions: () {
+                    List<ElmModuleList> waveElmModuleList = superAppState.waveList[waveIndex].elmModuleListArr;
+                    dynamic waveDataToCopy = superAppState.waveDataList[waveIndex];
+                    superAppState.addWaveBelow(waveIndex: waveIndex, elmModuleListArr: deepCopyElmModuleList(waveElmModuleList), waveData: deepCopy(waveDataToCopy));
+                    superAppState.updateAllWave();
+                  }
+                ),
+                //Delete
+                ElmIconButton(iconData: Icons.delete, iconColor: superAppState.themeColour, enabled: superAppState.enabledButtons['delete'] == false,
+                onPressFunctions: (){
+                  //TO-DO: Option to disable warning
+                  Get.defaultDialog(title: 'wave_deletewave_warning_title'.tr, middleText:  'util_deletewave_warning_desc'.tr, textCancel: 'Cancel'.tr, textConfirm: 'generic_confirm'.tr, onConfirm: (){
+                    superAppState.deleteWave(waveIndex: waveIndex);
+                    superAppState.updateAllWave();
+                    Get.back();
+                  });
+                
+                }),
+                //Add
+                ElmIconButton(iconData: Icons.add, iconColor: superAppState.themeColour, enabled: superAppState.enabledButtons['add'] == false,
+                  onPressFunctions:(){
+                    superAppState.addWaveBelow(waveIndex: waveIndex);
+                    superAppState.updateAllWave();
+                  }
+                ),
+              ]
+            );
+          }
+        ),
+      ],
     );
   }
 }

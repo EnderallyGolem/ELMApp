@@ -6,8 +6,63 @@ import '../main.dart';
 import '/util_classes.dart';
 import 'package:get/get.dart';
 
+class ProviderWaveState extends ChangeNotifier {
+  List<ProviderWaveEventState> waveList = [];
+  List<Map> waveDataList = [];
+  Color themeColour = const Color.fromARGB(255, 58, 104, 183);
+  GlobalKey<AnimatedListState> animatedWaveListKey = GlobalKey<AnimatedListState>();
+  @override ScrollController scrollController = ScrollController();
+  @override double scrollOffset = 0.0;
+  Map<String, bool> enabledButtons = //Change enabled buttons. extra contains all disabled buttons.
+    {'minimise': false, 'shiftup': false, 'shiftdown': false, 'copy': false, 'delete': true, 'add': true, 'extra': true};
 
-class ProviderWaveState extends ChangeNotifier implements GenericProviderState {
+  void addWaveBelow({required int waveIndex, List<ElmModuleList>? elmModuleListArr, Map? waveData}) {
+
+    ProviderWaveEventState newWaveEventState = ProviderWaveEventState();
+    elmModuleListArr ??= [];
+    newWaveEventState.elmModuleListArr = elmModuleListArr;
+
+    waveList.add(newWaveEventState);
+
+    waveData ??= {
+      'minimised': false,
+    };
+
+    waveDataList.add(waveData);
+    animatedWaveListKey.currentState!.insertItem(
+      waveIndex+1, 
+      duration: const Duration(milliseconds: 150)
+    );
+  }
+
+  void deleteWave({required int waveIndex}) {
+    waveList.removeAt(waveIndex);
+    waveDataList.removeAt(waveIndex);
+    animatedWaveListKey.currentState!.removeItem(
+      waveIndex,
+      duration: Duration(milliseconds: 150),
+      (context, animation) => _buildAnimatedElmModuleList(waveIndex: waveIndex, animation: animation)
+    );
+  }
+
+  void updateAllWave() {
+    notifyListeners();
+  }
+
+  static Widget _buildAnimatedElmModuleList({required int waveIndex, required Animation<double> animation}) {
+    return FadeTransition(
+      opacity: animation,
+      child: SizeTransition(
+        axisAlignment: 0,
+        axis: Axis.vertical,
+        sizeFactor: elmSizeTween(animation: animation),
+        child: WaveWidget(waveIndex: waveIndex),
+      ),
+    );
+  }
+}
+
+class ProviderWaveEventState extends ChangeNotifier implements GenericProviderState {
 
   //Change these first 4!
   @override Color themeColour = Color.fromARGB(255, 58, 104, 183); //Colour used by UI
@@ -193,16 +248,85 @@ class Page_Wave extends StatefulWidget {
 
 class _Page_WaveState extends State<Page_Wave> {
   @override
-  void initState() {
-    super.initState();
+  Widget build(BuildContext context) {
+    var waveState = context.watch<ProviderWaveState>();
+
+    return Scaffold(
+      appBar: AppBar(
+        toolbarHeight: 30,
+        title: Text('page_wave'.tr),
+        backgroundColor: Color.fromARGB(255, 175, 214, 249),
+        foregroundColor: Color.fromARGB(169, 3, 35, 105),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              padding: EdgeInsets.fromLTRB(10, 0, 10, 0),
+              minimumSize: const Size(110, 25),
+              fixedSize: const Size(110, 25),
+            ),
+            onPressed: () {
+              waveState.addWaveBelow(waveIndex: -1);
+              waveState.updateAllWave();
+            },
+            child: Row(children: [Icon(Icons.add, color: waveState.themeColour,), Text('wave_addwave'.tr, selectionColor: waveState.themeColour,)])
+          ),
+          ElmIconButton(iconData: Icons.undo, iconColor: waveState.themeColour, onPressFunctions: (){
+            if (allowUpdateUndoStack){
+              allowUpdateUndoStack = false;
+              appUndoStack.undo();
+              appUndoStackDelayedEnable();
+            }
+          }),
+          ElmIconButton(iconData: Icons.redo, iconColor: waveState.themeColour, onPressFunctions: (){
+            if (allowUpdateUndoStack){
+              allowUpdateUndoStack = false;
+              appUndoStack.redo();
+              appUndoStackDelayedEnable();
+            }
+          }),
+        ],
+      ),
+      body: AnimatedList(
+        padding: EdgeInsets.fromLTRB(0, 0, 0, 200), //Extra padding is to allow scrolling past the end
+        clipBehavior: Clip.none,
+        scrollDirection: Axis.vertical,
+        key: waveState.animatedWaveListKey,
+        initialItemCount: waveState.waveList.length,
+        controller: waveState.scrollController,
+        itemBuilder: (context, index, animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: SizeTransition(
+              sizeFactor: elmSizeTween(animation: animation),
+              axis: Axis.vertical,
+              axisAlignment: 0,
+              child: ChangeNotifierProvider.value(
+                key: ValueKey(index),
+                value: waveState.waveList[index],
+                child: WaveWidget(
+                  key: ValueKey(index),
+                  waveIndex: index,
+                ),
+              )
+            ),
+          );
+        },
+      ),
+    );
   }
-  @override
-  void dispose() {
-    super.dispose();
-  }
+}
+
+
+class WaveWidget extends StatelessWidget {
+
+  final int waveIndex;
+
+  const WaveWidget({super.key, required this.waveIndex});
+
   @override
   Widget build(BuildContext context) {
-    var appState = context.watch<ProviderWaveState>();
+    var appState = context.watch<ProviderWaveEventState>();
+    var waveAppState = context.watch<ProviderWaveState>();
     if (appState.runForFirstTime) {
       appState.runForFirstTime = false;
       eventBus.on<CheckImportModuleCodeEvent>().listen((event) {
@@ -217,6 +341,7 @@ class _Page_WaveState extends State<Page_Wave> {
       });
       eventBus.on<SetScrollEvent>().listen((event) {
         if (event.page == 'wave'){
+          //Needs to change depending on which wave was edited
           WidgetsBinding.instance.addPostFrameCallback((_) {
             print('i am jumping to wave page position ${event.scrollOffset}');
             appState.scrollController.jumpTo(event.scrollOffset); // Restore scroll position
@@ -229,10 +354,17 @@ class _Page_WaveState extends State<Page_Wave> {
         }
       });
     }
-    return ElmModuleListWidget(
-      appState: appState,
-      title: 'page_wave'.tr,
-      addModuleText: 'wave_addwave'.tr
+    return SizedBox(
+      height: 270,
+      child: ElmModuleListWidget(
+        superAppStateData: {
+          'appState': waveAppState,
+          'waveIndex': waveIndex,
+        },
+        appState: appState,
+        title: 'page_wave'.tr,
+        addModuleText: 'wave_addevent'.tr
+      ),
     );
   }
 }

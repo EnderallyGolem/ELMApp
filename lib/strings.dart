@@ -21,9 +21,9 @@ class ElmStrings extends Translations {
           'generic_error_desc': 'Something went wrong! Uh oh!',
 
           'util_moreactions': 'More actions',
-          'util_addwave': 'Add Module',
-          'util_deletewave_warning_title': 'Delete Module?',
-          'util_deletewave_warning_desc': 'Are you sure you want to delete this module?',
+          'util_addmodule': 'Add Module',
+          'util_deletemodule_warning_title': 'Delete Module?',
+          'util_deletemodule_warning_desc': 'Are you sure you want to delete this module?',
           'util_default_module_dropdown': 'Select Module',
           'util_default_module_message': 'Select a module!',
           'util_module_code_message_setdefault': 'Set to default',
@@ -33,6 +33,7 @@ class ElmStrings extends Translations {
 
           'wave_wave': 'Wave',
           'wave_addwave': 'Add Wave',
+          'wave_addevent': 'Add Event',
           'wave_deletewave_warning_title': 'Delete Wave?',
           'wave_deletewave_warning_desc': 'Are you sure you want to delete this wave?',
 
